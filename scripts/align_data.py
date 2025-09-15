@@ -16,9 +16,10 @@ from HNA.modules.utils import (
 # -----------------------
 # Config
 # -----------------------
-SAVEPATH = "../data/processed"
-DATA_DIR = "../data"
-JSON_PATH = "../data/audio_sync.json"
+SAVEPATH = "./data/processed"
+DATA_DIR = "./data"
+DATA_DIR = r'G:\My Drive\COSMIC FUTURE GROUNDED PRESENT\THE SEA PROJECT\PILOT\Sea_Project_data'
+JSON_PATH = "./data/audio_sync.json"
 
 conditions = {
     "02": ["MULTI", "AUD", "VIZ"],
