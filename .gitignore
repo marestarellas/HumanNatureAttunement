@@ -1,0 +1,50 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Virtual environments
+.venv/
+venv/
+env/
+.conda/
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# VSCode / IDE
+.vscode/
+.idea/
+
+# Logs and dumps
+*.log
+*.out
+*.err
+
+# OS-specific
+.DS_Store
+Thumbs.db
+
+# Data (keep raw/large files local unless using Git LFS)
+data/
+image_database/
+
+# Ignore test cache
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+
+data/*
+!data/README.md
