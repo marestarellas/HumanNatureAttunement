@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "HumanNatureAttunement"
+version = "0.1.0"
+description = "Analysis and synchronization utilities for EEG, physio, and audio data."
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [{ name = "Mar Estarellas and Antoine Bellemare" }]
+license = { text = "MIT" }
+dependencies = [
+  "numpy>=1.24",
+  "pandas>=2.1",
+  "soundfile>=0.12",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
