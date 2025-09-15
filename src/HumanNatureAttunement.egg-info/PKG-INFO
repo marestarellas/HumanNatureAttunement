@@ -1,0 +1,14 @@
+Metadata-Version: 2.4
+Name: HumanNatureAttunement
+Version: 0.1.0
+Summary: Analysis and synchronization utilities for EEG, physio, and audio data.
+Author: Mar Estarellas and Antoine Bellemare
+License: MIT
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+Requires-Dist: numpy>=1.24
+Requires-Dist: pandas>=2.1
+Requires-Dist: soundfile>=0.12
+
+# HumanNatureAttunement
+Exploring the neurophysiology of human attunement to nature through rhythmic entrainment and sensory synchronization.
