@@ -228,3 +228,90 @@ def plv_phase_sync(
     return PLVResult(f0=f0, band=(lo, hi), plv=float(plv),
                      mean_phase_diff=float(mean_phase),
                      preferred_lag_s=float(preferred_lag_s))
+
+
+import numpy as np
+from scipy import signal
+import matplotlib.pyplot as plt
+
+# --- windowed PLV (per-window time series) ---
+def windowed_plv(s1, s2, fs, win_sec=180.0, step_sec=30.0,
+                 f0=None, bw_hz=0.12, fmin_search=0.05, fmax_search=0.5):
+    def _nan_interp(x):
+        x = np.asarray(x, float)
+        if not np.isnan(x).any(): return x
+        idx = np.arange(len(x)); good = ~np.isnan(x)
+        if not good.any(): raise ValueError("All-NaN segment.")
+        x[:np.argmax(good)] = x[good][0]
+        x[len(x)-1-np.argmax(good[::-1])+1:] = x[good][-1]
+        bad = np.isnan(x); x[bad] = np.interp(idx[bad], idx[good], x[good])
+        return x
+
+    def _bandpass_sos(fs, lo, hi, order=4):
+        ny = 0.5*fs
+        lo = max(1e-6, lo/ny); hi = min(0.99, hi/ny)
+        return signal.butter(order, [lo, hi], btype="bandpass", output="sos")
+
+    def _dominant_freq(x, fs, fmin=0.05, fmax=0.5):
+        nper = min(len(x), int(fs*300))
+        f, Pxx = signal.welch(x, fs=fs, nperseg=nper, noverlap=nper//2, detrend="constant")
+        m = (f>=fmin)&(f<=fmax)
+        return float(f[m][np.argmax(Pxx[m])]) if np.any(m) else (fmin+fmax)/2
+
+    s1 = _nan_interp(s1); s2 = _nan_interp(s2)
+    W = int(round(win_sec*fs)); H = int(round(step_sec*fs))
+    starts = np.arange(0, max(len(s1)-W+1, 0), H)
+
+    times, plv, mean_phi, lag_s = [], [], [], []
+    for st in starts:
+        seg1, seg2 = s1[st:st+W], s2[st:st+W]
+        f0w = f0 if f0 is not None else _dominant_freq(seg2, fs, fmin_search, fmax_search)
+        half = bw_hz/2
+        sos = _bandpass_sos(fs, max(1e-3, f0w-half), f0w+half)
+        x1 = signal.sosfiltfilt(sos, seg1)
+        x2 = signal.sosfiltfilt(sos, seg2)
+        dphi = np.angle(np.exp(1j*(np.angle(signal.hilbert(x1)) - np.angle(signal.hilbert(x2)))))
+        e = np.exp(1j*dphi)
+        plv.append(np.abs(np.mean(e)))
+        mphi = np.angle(np.mean(e))
+        mean_phi.append(mphi)
+        lag_s.append(mphi/(2*np.pi*f0w) if f0w>0 else np.nan)
+        times.append((st+W/2)/fs)
+
+    return {"times_s": np.asarray(times),
+            "plv": np.asarray(plv),
+            "mean_phase_diff": np.asarray(mean_phi),
+            "preferred_lag_s": np.asarray(lag_s)}
+
+# --- quick plotting helper ---
+def plot_coupling_over_time(xc, coh, plv_win):
+    fig, axes = plt.subplots(3, 1, figsize=(12, 9), sharex=True)
+
+    # 1) cross-corr peak + lag
+    ax = axes[0]
+    ax.plot(xc.times_s, xc.peak_r, lw=1.6, label="XCorr peak r")
+    ax.set_ylabel("peak r"); ax.grid(True, alpha=0.3)
+    ax2 = ax.twinx()
+    ax2.plot(xc.times_s, xc.peak_lag_s, lw=1.1, ls="--", label="XCorr lag")
+    ax2.set_ylabel("lag (s)")
+    ax.set_title("Windowed cross-correlation")
+
+    # 2) band-avg coherence (if windowed series available)
+    ax = axes[1]
+    if coh.times_s is not None and coh.band_avg_coh_win is not None:
+        ax.plot(coh.times_s, coh.band_avg_coh_win, lw=1.6)
+    ax.set_ylabel("band-avg coherence"); ax.grid(True, alpha=0.3)
+    ax.set_title(f"Welch coherence (band avg ~ {getattr(coh,'band_avg_coh',np.nan):.2f}, global peak {coh.peak_coh:.2f} @ {coh.peak_f:.3f} Hz)")
+
+    # 3) PLV + preferred lag
+    ax = axes[2]
+    ax.plot(plv_win["times_s"], plv_win["plv"], lw=1.6, label="PLV")
+    ax.set_ylabel("PLV"); ax.grid(True, alpha=0.3)
+    ax2 = ax.twinx()
+    ax2.plot(plv_win["times_s"], plv_win["preferred_lag_s"], lw=1.1, ls="--", label="PLV lag")
+    ax2.set_ylabel("lag (s)")
+    ax.set_title("Windowed PLV")
+
+    axes[-1].set_xlabel("time (s)")
+    fig.tight_layout()
+    return fig
