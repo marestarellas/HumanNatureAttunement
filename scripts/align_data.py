@@ -25,9 +25,13 @@ conditions = {
     "02": ["MULTI", "AUD", "VIZ"],
     "03": ["MULTI", "VIZ", "AUD"],
     # '04': ["AUD", "VIZ", "MULTI"],
+    '05': ["VIZ", "AUD", "MULTI"],
+    '06': ["AUD", "VIZ", "MULTI"],
+    '07': ["AUD", "MULTI", "VIZ"],
+    # '08': ["MULTI", "AUD", "VIZ"],
 }
 
-SUBJECTS = ["02", "03"]  # expand later when ready
+SUBJECTS = ["02", "03", "05", "06", "07"]  # expand later when ready
 
 # -----------------------
 # Helpers

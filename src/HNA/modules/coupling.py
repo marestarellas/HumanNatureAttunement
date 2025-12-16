@@ -283,6 +283,128 @@ def windowed_plv(s1, s2, fs, win_sec=180.0, step_sec=30.0,
             "mean_phase_diff": np.asarray(mean_phi),
             "preferred_lag_s": np.asarray(lag_s)}
 
+from dataclasses import dataclass
+from typing import Optional, Tuple
+import numpy as np
+from scipy import signal
+
+# ---------- wPLI (global) ----------
+@dataclass
+class WPLIResult:
+    f0: float
+    band: Tuple[float, float]
+    wpli: float
+
+def _wpli_from_phase(dphi: np.ndarray) -> float:
+    # dphi in radians; use imaginary part of unit phasors (sin)
+    s = np.sin(dphi.astype(float))
+    den = np.mean(np.abs(s)) + 1e-12
+    num = np.abs(np.mean(s))
+    return float(num / den) if np.isfinite(den) and den > 0 else np.nan
+
+def wpli_phase_sync(
+    s1: np.ndarray,
+    s2: np.ndarray,
+    fs: float,
+    f0: Optional[float] = None,
+    bw_hz: float = 0.12,
+    fmin_search: float = 0.05,
+    fmax_search: float = 0.5,
+    order: int = 4
+) -> WPLIResult:
+    s1 = _nan_interp(np.asarray(s1, float))
+    s2 = _nan_interp(np.asarray(s2, float))
+    if f0 is None:
+        # detect from s2 (resp) by default
+        nper = min(len(s2), int(round(fs * 300)))
+        f, Pxx = signal.welch(s2, fs=fs, nperseg=nper, noverlap=nper//2, detrend="constant")
+        m = (f >= fmin_search) & (f <= fmax_search)
+        if not np.any(m):
+            raise ValueError("No bins in requested f-range for dominant freq detection.")
+        f0 = float(f[m][np.argmax(Pxx[m])])
+
+    half = bw_hz / 2.0
+    lo, hi = max(1e-3, f0 - half), max(f0 + half, f0 + 1e-3)
+    sos = _butter_bandpass(lo, hi, fs, order=order)
+    x1 = signal.sosfiltfilt(sos, s1)
+    x2 = signal.sosfiltfilt(sos, s2)
+
+    phi1 = np.angle(signal.hilbert(x1))
+    phi2 = np.angle(signal.hilbert(x2))
+    dphi = np.angle(np.exp(1j * (phi1 - phi2)))  # wrap to (-pi, pi]
+
+    return WPLIResult(f0=f0, band=(lo, hi), wpli=_wpli_from_phase(dphi))
+
+# ---------- wPLI (windowed time series) ----------
+def windowed_wpli(
+    s1: np.ndarray,
+    s2: np.ndarray,
+    fs: float,
+    win_sec: float = 180.0,
+    step_sec: float = 30.0,
+    f0: Optional[float] = None,
+    bw_hz: float = 0.12,
+    fmin_search: float = 0.05,
+    fmax_search: float = 0.5,
+    order: int = 4
+):
+    s1 = _nan_interp(np.asarray(s1, float))
+    s2 = _nan_interp(np.asarray(s2, float))
+
+    W = int(round(win_sec * fs))
+    H = int(round(step_sec * fs))
+    if W <= 1 or W > len(s1):
+        raise ValueError("Window size must be >1 and <= length of signals.")
+
+    starts = np.arange(0, len(s1) - W + 1, H)
+
+    # Either fixed f0 for all windows, or auto-detect per window from s2
+    def _dominant_freq(x, fs, fmin=fmin_search, fmax=fmax_search):
+        nper = min(len(x), int(round(fs * 300)))
+        f, Pxx = signal.welch(x, fs=fs, nperseg=nper, noverlap=nper//2, detrend="constant")
+        m = (f >= fmin) & (f <= fmax)
+        return float(f[m][np.argmax(Pxx[m])]) if np.any(m) else (fmin + fmax) / 2.0
+
+    wpli_vals, times_s = [], []
+    lohi_cache: Optional[Tuple[float, float]] = None
+
+    for st in starts:
+        seg1 = s1[st:st+W]
+        seg2 = s2[st:st+W]
+
+        if f0 is None:
+            f0_w = _dominant_freq(seg2, fs)
+            half = bw_hz / 2.0
+            lo, hi = max(1e-3, f0_w - half), max(f0_w + half, f0_w + 1e-3)
+        else:
+            f0_w = f0
+            if lohi_cache is None:
+                half = bw_hz / 2.0
+                lohi_cache = (max(1e-3, f0 - half), max(f0 + half, f0 + 1e-3))
+            lo, hi = lohi_cache
+
+        sos = _butter_bandpass(lo, hi, fs, order=order)
+        x1 = signal.sosfiltfilt(sos, seg1)
+        x2 = signal.sosfiltfilt(sos, seg2)
+
+        phi1 = np.angle(signal.hilbert(x1))
+        phi2 = np.angle(signal.hilbert(x2))
+        dphi = np.angle(np.exp(1j * (phi1 - phi2)))
+
+        wpli_vals.append(_wpli_from_phase(dphi))
+        times_s.append((st + W/2) / fs)
+
+    return {
+        "times_s": np.asarray(times_s),
+        "wpli": np.asarray(wpli_vals),
+        "band": (lo, hi) if lohi_cache is not None else None,  # if fixed f0
+    }
+
+
+
+
+
+
 # --- quick plotting helper ---
 def plot_coupling_over_time(xc, coh, plv_win):
     fig, axes = plt.subplots(3, 1, figsize=(12, 9), sharex=True)
@@ -307,10 +429,10 @@ def plot_coupling_over_time(xc, coh, plv_win):
     ax = axes[2]
     ax.plot(plv_win["times_s"], plv_win["plv"], lw=1.6, label="PLV")
     ax.set_ylabel("PLV"); ax.grid(True, alpha=0.3)
-    ax2 = ax.twinx()
-    ax2.plot(plv_win["times_s"], plv_win["preferred_lag_s"], lw=1.1, ls="--", label="PLV lag")
-    ax2.set_ylabel("lag (s)")
-    ax.set_title("Windowed PLV")
+    #ax2 = ax.twinx()
+    #ax2.plot(plv_win["times_s"], plv_win["preferred_lag_s"], lw=1.1, ls="--", label="PLV lag")
+    #ax2.set_ylabel("lag (s)")
+    #ax.set_title("Windowed PLV")
 
     axes[-1].set_xlabel("time (s)")
     fig.tight_layout()
