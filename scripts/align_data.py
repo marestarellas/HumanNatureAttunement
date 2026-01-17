@@ -16,23 +16,23 @@ from HNA.modules.utils import (
 # -----------------------
 # Config
 # -----------------------
-SAVEPATH = "./data/processed"
-DATA_DIR = "./data"
-DATA_DIR = r'G:\My Drive\COSMIC FUTURE GROUNDED PRESENT\THE SEA PROJECT\PILOT\Sea_Project_data'
-JSON_PATH = "./data/audio_sync.json"
+SAVEPATH = "../data/processed"
+DATA_DIR = "../data"
+# DATA_DIR = r'G:\My Drive\COSMIC FUTURE GROUNDED PRESENT\THE SEA PROJECT\PILOT\Sea_Project_data'
+JSON_PATH = "../data/audio_sync.json"
 
 conditions = {
     "02": ["MULTI", "AUD", "VIZ"],
-    "03": ["MULTI", "VIZ", "AUD"],
-    # '04': ["AUD", "VIZ", "MULTI"],
+    "03": ["AUD", "VIZ", "MULTI"],
+    '04': ["VIZ", "AUD", "MULTI"],
     '05': ["VIZ", "AUD", "MULTI"],
     '06': ["AUD", "VIZ", "MULTI"],
-    '07': ["AUD", "MULTI", "VIZ"],
+    # '07': ["VIZ", "AUD", "MULTI"],
     # '08': ["MULTI", "AUD", "VIZ"],
 }
 
-SUBJECTS = ["02", "03", "05", "06", "07"]  # expand later when ready
-
+SUBJECTS = ["02", "03", '04', "05", "06"]  # expand later when ready
+# SUBJECTS = ["08"]  # expand later when ready
 # -----------------------
 # Helpers
 # -----------------------
@@ -67,13 +67,32 @@ def process_subject(subj: str):
 
     # ------- Merge and annotate conditions -------
     merged_data = pd.concat([physio_aligned, eeg_aligned], axis=1)
-    condition_indices = find_last_high_indices(merged_data, threshold=2000)
-
+    if subj == '08':
+        condition_indices = find_last_high_indices(merged_data, threshold=1950)
+    else:
+        condition_indices = find_last_high_indices(merged_data, threshold=2000)
+    print(f"  Found condition trigger indices: {condition_indices}")
     cond_list = conditions.get(subj)
     if cond_list is None:
         print(f"  No condition ordering for subj {subj}, skipping.")
         return
 
+    # Subject-specific corrections
+    if subj == '05':
+        # Remove fifth trigger from the end (index -5)
+        print(f"  Before removal: {len(condition_indices)} triggers")
+        print(f"  Removing trigger at index {condition_indices[-5]}")
+        condition_indices = condition_indices[:-5] + condition_indices[-4:]
+        print(f"  After removal: {len(condition_indices)} triggers")
+        
+    if subj == '04':
+        # add trigger 3 minutes after the last trigger
+        print(f"  Before addition: {len(condition_indices)} triggers")
+        last_trigger = condition_indices[-1]
+        additional_trigger = last_trigger + 3 * 60 * 256  # 3 minutes later
+        condition_indices.append(additional_trigger)
+        print(f"  After addition: {len(condition_indices)} triggers")
+        
     try:
         merged_annotated = annotate_conditions(merged_data, condition_indices, cond_list)
         u = merged_annotated["condition_names"].unique()
