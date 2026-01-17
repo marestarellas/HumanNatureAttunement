@@ -22,7 +22,7 @@ DATA_DIR = "../data"
 JSON_PATH = "../data/audio_sync.json"
 
 conditions = {
-    "02": ["MULTI", "AUD", "VIZ"],
+    "02": ["MULTI", "VIZ", "AUD"],
     "03": ["AUD", "VIZ", "MULTI"],
     '04': ["VIZ", "AUD", "MULTI"],
     '05': ["VIZ", "AUD", "MULTI"],
