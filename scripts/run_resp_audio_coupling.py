@@ -65,7 +65,7 @@ def pair_segments(indices_dict: dict) -> dict[str, tuple[int,int]]:
     return segs
 
 # ---------- plotting wrappers ----------
-def save_coupling_plots(subject_dir: Path, cond: str, xc, coh_dict_or_obj, plv_win_dict):
+def save_coupling_plots(subject_dir: Path, cond: str, xc, coh_dict_or_obj, plv_win_dict, env_col: str = ""):
     plots_dir = subject_dir / "plots"
     plots_dir.mkdir(parents=True, exist_ok=True)
 
@@ -74,11 +74,13 @@ def save_coupling_plots(subject_dir: Path, cond: str, xc, coh_dict_or_obj, plv_w
 
     # 1) time-series summary (xcorr + PLV + coherence time series)
     fig1 = plot_coupling_over_time(xc, coh_for_plot, plv_win_dict)
+    env_label = f" ({env_col})" if env_col else ""
+    fig1.suptitle(f"{cond} — Respiration ↔ Audio{env_label}", fontsize=14, fontweight='bold')
     fig1.savefig(plots_dir / f"{cond}_coupling_timeseries.png", dpi=160); plt.close(fig1)
 
     # 2) spectrum + windowed band-avg (this helper already accepts dict or object)
     fig2 = plot_coherence_results(coh_dict_or_obj, band=(COH_FMIN, COH_FMAX),
-                                  title=f"Coherence — {cond}")
+                                  title=f"Coherence — {cond}{env_label}")
     fig2.savefig(plots_dir / f"{cond}_coherence.png", dpi=160); plt.close(fig2)
 
 # ---------- per-subject processor ----------
@@ -183,7 +185,7 @@ def process_subject(subj: str, overwrite=False, envelope_pref=("env_swell_0p3","
         })
 
         # ---- plots ----
-        save_coupling_plots(sdir, cond, xc, coh, plv_win)
+        save_coupling_plots(sdir, cond, xc, coh, plv_win, env_col)
 
     # write per-subject summary CSV
     out_csv = results_dir / "coupling_summary.csv"
