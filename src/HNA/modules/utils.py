@@ -121,9 +121,10 @@ def find_last_high_indices(merged_data, threshold=2000):
         high_indices = high_indices[last_in_run].tolist()
     return high_indices
 
-def annotate_conditions(merged_data, condition_indices, condition_list):
+def annotate_conditions(merged_data, condition_indices, condition_list, sampling_rate=256):
     """
     Adds a 'condition_names' column to merged_data.
+    - Merges triggers less than 1 second apart
     - Each of the first N-10 indices in condition_indices is labeled 'AUDIO_SYNC'.
     - The last 10 are mapped to their event label.
     - All other rows are 0.
@@ -135,6 +136,8 @@ def annotate_conditions(merged_data, condition_indices, condition_list):
         Event indices (can be more than 10; last 10 are mapped to event labels).
     condition_list : list of str
         Three condition names, e.g. ["MULTI", "AUD", "VIZ"].
+    sampling_rate : int
+        Sampling rate in Hz (default: 256).
 
     Returns
     -------
@@ -142,7 +145,25 @@ def annotate_conditions(merged_data, condition_indices, condition_list):
         With new column 'condition_names'.
     """
     assert len(condition_list) == 3, "Expected 3 condition names in condition_list."
-    assert len(condition_indices) >= 10, "Need at least 10 indices."
+    
+    # Merge triggers less than 1 second apart
+    min_spacing_samples = sampling_rate  # 1 second
+    merged_indices = []
+    
+    for i, idx in enumerate(condition_indices):
+        if i == 0:
+            merged_indices.append(idx)
+        else:
+            spacing = idx - merged_indices[-1]
+            if spacing >= min_spacing_samples:
+                merged_indices.append(idx)
+            else:
+                print(f"  Merging trigger at index {idx} (spacing: {spacing/sampling_rate:.2f}s from previous)")
+    
+    condition_indices = merged_indices
+    print(f"  After merging: {len(condition_indices)} triggers remain")
+    
+    assert len(condition_indices) >= 10, f"Need at least 10 indices after merging, but only have {len(condition_indices)}."
 
     # Labels for last 10
     last_labels = [
@@ -241,3 +262,42 @@ def get_condition_segments(df, conditions):
         else:
             indices[cond] = None
     return indices
+
+
+def extract_condition_data(df, condition_name):
+    """
+    Extract data for a specific condition from the dataframe.
+    
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Input dataframe with condition_names column
+    condition_name : str
+        Condition name (e.g., 'RS1', 'VIZ', 'AUD', 'MULTI', 'RS2')
+    
+    Returns
+    -------
+    df_condition : pd.DataFrame
+        Dataframe containing only data from start to stop of the condition
+    """
+    
+    start_label = f'{condition_name}_start'
+    stop_label = f'{condition_name}_stop'
+    
+    # Find start and stop indices
+    start_idx = df[df['condition_names'] == start_label].index
+    stop_idx = df[df['condition_names'] == stop_label].index
+    
+    if len(start_idx) == 0 or len(stop_idx) == 0:
+        print(f"Warning: {condition_name} markers not found in dataframe")
+        return None
+    
+    # Extract data between start and stop (inclusive)
+    start = start_idx[0]
+    stop = stop_idx[0]
+    df_condition = df.iloc[start:stop+1].copy()
+    
+    duration_sec = len(df_condition) / 256
+    print(f"{condition_name}: {len(df_condition)} samples ({duration_sec:.1f} seconds)")
+    
+    return df_condition
