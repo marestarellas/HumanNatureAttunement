@@ -1,7 +1,11 @@
 {
 "sub-00": ["VIZ", "MULTI", "AUD"],
 "sub-01": ["VIZ", "MULTI", "AUD"],
-"sub-02": ["AUD", "VIZ", "MULTI"],
-"sub-03": ["MULTI", "VIZ", "AUD"],
-"sub-04": ["AUD", "MULTI", "VIZ"]
+"sub-02": ["MULTI", "VIZ", "AUD"],
+"sub-03": ["AUD", "VIZ", "MULTI"],
+"sub-04": ["VIZ", "AUD", "MULTI"],
+"sub-05": ["VIZ", "AUD", "MULTI"],
+"sub-06": ["AUD", "VIZ", "MULTI"],
+"sub-07": ["AUD", "MULTI", "VIZ"],
+"sub-08": ["MULTI", "AUD", "VIZ"]
 }
