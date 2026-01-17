@@ -9,7 +9,7 @@ from pathlib import Path
 # -----------------------
 # Defaults / Config
 # -----------------------
-SAVEPATH = "./data/processed"
+SAVEPATH = "../data/processed"
 FS_ANNOT_DEFAULT = 256.0               # Hz
 ANNOT_FILE = "merged_annotated_cut.csv"
 AUDIO_CANONICAL = "sea_envelopes_curves.csv"
