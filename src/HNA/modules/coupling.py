@@ -3,37 +3,17 @@ from scipy import signal
 from dataclasses import dataclass
 from typing import Tuple, Optional, Dict
 
-# --------------------------
-# Utils: NaN handling & zscore
-# --------------------------
-def _nan_interp(x: np.ndarray) -> np.ndarray:
-    x = np.asarray(x, float)
-    n = len(x)
-    if n == 0:
-        return x
-    mask = np.isnan(x)
-    if not mask.any():
-        return x
-    idx = np.arange(n)
-    # forward/backward fill edges
-    if mask[0]:
-        first = np.flatnonzero(~mask)
-        if len(first) == 0:
-            raise ValueError("All values are NaN.")
-        x[:first[0]] = x[first[0]]
-    if mask[-1]:
-        last = np.flatnonzero(~mask)
-        x[last[-1]+1:] = x[last[-1]]
-    # linear interp interior
-    mask = np.isnan(x)
-    x[mask] = np.interp(idx[mask], idx[~mask], x[~mask])
-    return x
+from .dsp import (
+    interpolate_nan as _nan_interp,
+    zscore as _zscore,
+    butter_sos as _butter_sos,
+    bandpass as _bandpass,
+)
 
-def _zscore(x: np.ndarray) -> np.ndarray:
-    x = np.asarray(x, float)
-    m = np.mean(x)
-    s = np.std(x)
-    return (x - m) / (s + 1e-12)
+
+def _butter_bandpass(lo, hi, fs, order=4):
+    """Backwards-compatible alias kept for in-file call sites."""
+    return _butter_sos([lo, hi], fs=fs, btype="bandpass", order=order)
 
 # --------------------------
 # 1) Windowed Cross-Correlation with Lag
@@ -179,13 +159,6 @@ class PLVResult:
     mean_phase_diff: float       # radians, in (-pi, pi]
     preferred_lag_s: float       # seconds (interpreting mean phase at f0)
 
-def _butter_bandpass(lo, hi, fs, order=4):
-    nyq = fs * 0.5
-    lo = max(1e-6, lo)
-    hi = min(hi, nyq * 0.99)
-    sos = signal.butter(order, [lo/nyq, hi/nyq], btype='bandpass', output='sos')
-    return sos
-
 def _dominant_freq(x: np.ndarray, fs: float, fmin=0.05, fmax=0.5) -> float:
     # Welch PSD and find peak in the respiratory band
     nper = min(len(x), int(round(fs * 300)))
@@ -237,21 +210,6 @@ import matplotlib.pyplot as plt
 # --- windowed PLV (per-window time series) ---
 def windowed_plv(s1, s2, fs, win_sec=180.0, step_sec=30.0,
                  f0=None, bw_hz=0.12, fmin_search=0.05, fmax_search=0.5):
-    def _nan_interp(x):
-        x = np.asarray(x, float)
-        if not np.isnan(x).any(): return x
-        idx = np.arange(len(x)); good = ~np.isnan(x)
-        if not good.any(): raise ValueError("All-NaN segment.")
-        x[:np.argmax(good)] = x[good][0]
-        x[len(x)-1-np.argmax(good[::-1])+1:] = x[good][-1]
-        bad = np.isnan(x); x[bad] = np.interp(idx[bad], idx[good], x[good])
-        return x
-
-    def _bandpass_sos(fs, lo, hi, order=4):
-        ny = 0.5*fs
-        lo = max(1e-6, lo/ny); hi = min(0.99, hi/ny)
-        return signal.butter(order, [lo, hi], btype="bandpass", output="sos")
-
     def _dominant_freq(x, fs, fmin=0.05, fmax=0.5):
         nper = min(len(x), int(fs*300))
         f, Pxx = signal.welch(x, fs=fs, nperseg=nper, noverlap=nper//2, detrend="constant")
@@ -267,7 +225,7 @@ def windowed_plv(s1, s2, fs, win_sec=180.0, step_sec=30.0,
         seg1, seg2 = s1[st:st+W], s2[st:st+W]
         f0w = f0 if f0 is not None else _dominant_freq(seg2, fs, fmin_search, fmax_search)
         half = bw_hz/2
-        sos = _bandpass_sos(fs, max(1e-3, f0w-half), f0w+half)
+        sos = _butter_bandpass(max(1e-3, f0w-half), f0w+half, fs)
         x1 = signal.sosfiltfilt(sos, seg1)
         x2 = signal.sosfiltfilt(sos, seg2)
         dphi = np.angle(np.exp(1j*(np.angle(signal.hilbert(x1)) - np.angle(signal.hilbert(x2)))))
@@ -401,11 +359,132 @@ def windowed_wpli(
     }
 
 
+# --------------------------
+# Windowed mutual information (sliding-window MI)
+# --------------------------
+def windowed_mi(
+    s1: np.ndarray,
+    s2: np.ndarray,
+    fs: float,
+    win_sec: float = 120.0,
+    step_sec: float = 10.0,
+    n_neighbors: int = 3,
+    rng_seed: int = 42,
+):
+    """Sliding-window MI between two 1-D signals.
+
+    Uses ``sklearn.feature_selection.mutual_info_regression`` (kNN/Kraskov-like)
+    on each window. Returns a dict with ``times_s`` (window centers, seconds)
+    and ``mi`` (per-window MI estimate). The estimator is upward-biased on
+    autocorrelated time series; treat values as a *relative* coupling index
+    rather than absolute information rate.
+    """
+    from sklearn.feature_selection import mutual_info_regression
+
+    s1 = _nan_interp(np.asarray(s1, float))
+    s2 = _nan_interp(np.asarray(s2, float))
+    n = min(len(s1), len(s2))
+    s1, s2 = s1[:n], s2[:n]
+
+    W = int(round(win_sec * fs))
+    H = int(round(step_sec * fs))
+    if W <= 1 or W > n:
+        raise ValueError("Window size must be >1 and <= length of signals.")
+
+    starts = np.arange(0, n - W + 1, H)
+    times_s = np.empty(len(starts), float)
+    mi_vals = np.empty(len(starts), float)
+
+    for i, st in enumerate(starts):
+        x = s1[st:st+W].reshape(-1, 1)
+        y = s2[st:st+W]
+        try:
+            mi_vals[i] = float(mutual_info_regression(
+                x, y, n_neighbors=n_neighbors, random_state=rng_seed)[0])
+        except Exception:
+            mi_vals[i] = float("nan")
+        times_s[i] = (st + W / 2.0) / fs
+
+    return {"times_s": times_s, "mi": mi_vals,
+            "n_neighbors": n_neighbors, "win_sec": win_sec, "step_sec": step_sec}
+
+
 
 
 
 
 # --- quick plotting helper ---
+def plot_signal_alignment_validation(resp, env, fs, cond_label="", env_label="env_swell_0p2",
+                                     preview_sec=60.0, max_lag_sec=10.0,
+                                     win_sec=30.0, step_sec=5.0,
+                                     signal1_label="Respiration"):
+    """
+    3-panel validation plot showing how a slow physiological signal co-varies with the audio envelope.
+
+    Panel 1: Normalized overlay of `signal1_label` vs envelope over the first `preview_sec` seconds.
+    Panel 2: Full-signal cross-correlation as a function of lag (lag in seconds).
+    Panel 3: Time-varying Pearson r in `win_sec`-long sliding windows stepping by `step_sec`.
+    """
+    import matplotlib.pyplot as plt
+    resp = _nan_interp(np.asarray(resp, float))
+    env  = _nan_interp(np.asarray(env, float))
+    n = min(len(resp), len(env))
+    resp = resp[:n]; env = env[:n]
+
+    fig, axes = plt.subplots(3, 1, figsize=(12, 9))
+
+    # 1) Preview overlay (first preview_sec seconds)
+    ax = axes[0]
+    n_prev = min(int(preview_sec * fs), n)
+    t = np.arange(n_prev) / fs
+    ax.plot(t, _zscore(resp[:n_prev]), lw=1.4, color="tab:blue", label=signal1_label)
+    ax.plot(t, _zscore(env[:n_prev]),  lw=1.4, color="tab:red",  alpha=0.85,
+            label=f"Audio ({env_label})")
+    ax.set_xlabel("Time (s)"); ax.set_ylabel("Normalized amplitude")
+    # Title removed (in caption).
+    ax.grid(True, alpha=0.3); ax.legend(loc="upper right")
+
+    # 2) Lag analysis (full signal)
+    ax = axes[1]
+    rz = _zscore(resp); ez = _zscore(env)
+    max_lag = int(round(max_lag_sec * fs))
+    xcorr = signal.correlate(rz, ez, mode="full") / n
+    lags = signal.correlation_lags(len(rz), len(ez), mode="full") / fs
+    sel = (lags >= -max_lag_sec) & (lags <= max_lag_sec)
+    L = lags[sel]; X = xcorr[sel]
+    peak_idx = int(np.argmax(np.abs(X)))
+    peak_lag = L[peak_idx]; peak_r = X[peak_idx]
+    ax.plot(L, X, color="tab:orange", lw=2)
+    ax.axhline(0, color="grey", linestyle="--", alpha=0.6)
+    ax.axvline(0, color="grey", linestyle="--", alpha=0.6)
+    ax.scatter([peak_lag], [peak_r], color="red", s=70, zorder=5,
+               label=f"Peak: r={peak_r:.3f} at {peak_lag:.2f}s")
+    ax.set_xlabel("Lag (s)"); ax.set_ylabel("Cross-correlation")
+    ax.set_title("Lag Analysis (full signal)")
+    ax.grid(True, alpha=0.3); ax.legend(loc="upper left")
+
+    # 3) Time-varying correlation
+    ax = axes[2]
+    W = int(round(win_sec * fs)); H = int(round(step_sec * fs))
+    starts = np.arange(0, max(n - W + 1, 0), H)
+    times = []; rs = []
+    for st in starts:
+        a = resp[st:st+W]; b = env[st:st+W]
+        if a.std() > 0 and b.std() > 0:
+            r = float(np.corrcoef(a, b)[0, 1])
+        else:
+            r = np.nan
+        times.append((st + W/2) / fs); rs.append(r)
+    ax.plot(times, rs, "-o", color="tab:green", lw=1.4, ms=4)
+    ax.axhline(0, color="grey", linestyle="--", alpha=0.6)
+    ax.set_xlabel("Time (s)"); ax.set_ylabel("Pearson r")
+    ax.set_title(f"Time-varying correlation ({int(win_sec)}s windows, {int(step_sec)}s steps)")
+    ax.set_ylim(-1, 1); ax.grid(True, alpha=0.3)
+
+    fig.tight_layout()
+    return fig
+
+
 def plot_coupling_over_time(xc, coh, plv_win):
     fig, axes = plt.subplots(3, 1, figsize=(12, 9), sharex=True)
 

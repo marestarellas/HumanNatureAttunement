@@ -1,0 +1,112 @@
+[
+  {
+    "metric": "xcorr_peak_r",
+    "friedman_stat": 5.200000000000003,
+    "friedman_p": 0.0742735782143338,
+    "posthoc": [
+      {
+        "pair": "VIZ_vs_AUD",
+        "stat": 2.0,
+        "p": 0.1875
+      },
+      {
+        "pair": "VIZ_vs_MULTI",
+        "stat": 6.0,
+        "p": 0.8125
+      },
+      {
+        "pair": "AUD_vs_MULTI",
+        "stat": 0.0,
+        "p": 0.0625
+      }
+    ]
+  },
+  {
+    "metric": "coh_band_avg",
+    "friedman_stat": 3.6000000000000014,
+    "friedman_p": 0.1652988882215864,
+    "posthoc": [
+      {
+        "pair": "VIZ_vs_AUD",
+        "stat": 0.0,
+        "p": 0.0625
+      },
+      {
+        "pair": "VIZ_vs_MULTI",
+        "stat": 7.0,
+        "p": 1.0
+      },
+      {
+        "pair": "AUD_vs_MULTI",
+        "stat": 5.0,
+        "p": 0.625
+      }
+    ]
+  },
+  {
+    "metric": "plv",
+    "friedman_stat": 1.6000000000000014,
+    "friedman_p": 0.44932896411722134,
+    "posthoc": [
+      {
+        "pair": "VIZ_vs_AUD",
+        "stat": 1.0,
+        "p": 0.125
+      },
+      {
+        "pair": "VIZ_vs_MULTI",
+        "stat": 5.0,
+        "p": 0.625
+      },
+      {
+        "pair": "AUD_vs_MULTI",
+        "stat": 3.0,
+        "p": 0.3125
+      }
+    ]
+  },
+  {
+    "metric": "wpli",
+    "friedman_stat": 3.6000000000000014,
+    "friedman_p": 0.1652988882215864,
+    "posthoc": [
+      {
+        "pair": "VIZ_vs_AUD",
+        "stat": 0.0,
+        "p": 0.0625
+      },
+      {
+        "pair": "VIZ_vs_MULTI",
+        "stat": 6.0,
+        "p": 0.8125
+      },
+      {
+        "pair": "AUD_vs_MULTI",
+        "stat": 4.0,
+        "p": 0.4375
+      }
+    ]
+  },
+  {
+    "metric": "mi",
+    "friedman_stat": 1.6000000000000014,
+    "friedman_p": 0.44932896411722134,
+    "posthoc": [
+      {
+        "pair": "VIZ_vs_AUD",
+        "stat": 5.0,
+        "p": 0.625
+      },
+      {
+        "pair": "VIZ_vs_MULTI",
+        "stat": 7.0,
+        "p": 1.0
+      },
+      {
+        "pair": "AUD_vs_MULTI",
+        "stat": 6.0,
+        "p": 0.8125
+      }
+    ]
+  }
+]

@@ -1,0 +1,65 @@
+{
+  "_schema": {
+    "condition_order": "List of 3 condition names in their presentation order (after RS1 and before RS2).",
+    "audio_sync": "Time of the AUDIO_SYNC reference in the raw audio file. Accepts 'mm:ss', 'h:mm:ss', or seconds.",
+    "trigger_threshold": "Threshold for find_last_high_indices() on condition_triggers (default 2000).",
+    "trigger_patches": "Optional manual fixes applied AFTER trigger detection. Supported keys: remove_indices (list of negative ints, applied as condition_indices.pop(i)), add_after_last_s (float, appends a trigger this many seconds after the last detected one, sample-rate computed from sampling_rate).",
+    "sampling_rate": "Sample rate (Hz) used to translate add_after_last_s into samples and to set time_s when missing. Default 256.",
+    "status": "ready | pending | split_recording | trigger_problem | excluded",
+    "notes": "Free-form."
+  },
+  "subjects": {
+    "sub-00": {
+      "condition_order": ["VIZ", "MULTI", "AUD"],
+      "status": "split_recording",
+      "notes": "Raw EEG/physio split into multiple HH-MM-SS sub-folders with vendor BBT format; current load_data() only reads CSV root. Needs a dedicated multi-block loader before it can run."
+    },
+    "sub-01": {
+      "condition_order": ["VIZ", "MULTI", "AUD"],
+      "status": "split_recording",
+      "notes": "Same multi-block raw layout as sub-00."
+    },
+    "sub-02": {
+      "condition_order": ["MULTI", "VIZ", "AUD"],
+      "audio_sync": "3:22",
+      "status": "ready"
+    },
+    "sub-03": {
+      "condition_order": ["AUD", "VIZ", "MULTI"],
+      "audio_sync": "0:41",
+      "status": "ready"
+    },
+    "sub-04": {
+      "condition_order": ["VIZ", "AUD", "MULTI"],
+      "audio_sync": "1:21",
+      "trigger_patches": {"add_after_last_s": 180.0},
+      "status": "ready",
+      "notes": "Last condition trigger missing in recording; injected 3 min after last detected trigger."
+    },
+    "sub-05": {
+      "condition_order": ["VIZ", "AUD", "MULTI"],
+      "audio_sync": "4:33",
+      "trigger_patches": {"remove_indices": [-5]},
+      "status": "ready",
+      "notes": "Spurious extra trigger near end; remove the 5th-from-last index."
+    },
+    "sub-06": {
+      "condition_order": ["AUD", "VIZ", "MULTI"],
+      "audio_sync": "2:08",
+      "status": "ready"
+    },
+    "sub-07": {
+      "condition_order": ["VIZ", "AUD", "MULTI"],
+      "audio_sync": "11:20",
+      "status": "pending",
+      "notes": "Raw data present (single-block CSV layout) but not yet validated end-to-end."
+    },
+    "sub-08": {
+      "condition_order": ["MULTI", "AUD", "VIZ"],
+      "audio_sync": "2:17",
+      "trigger_threshold": 1950,
+      "status": "trigger_problem",
+      "notes": "Lowered trigger threshold (1950 instead of 2000); some trigger anomalies may remain. Run manually with --subjects 08 once validated."
+    }
+  }
+}
