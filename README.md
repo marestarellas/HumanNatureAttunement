@@ -10,14 +10,6 @@ as Mechanism of Nature Connectedness* project, and a preliminary results
 report from the pilot dataset (n=5, sea-coast field recordings on the
 coasts of Chile and Mallorca, Spain).
 
-## Showcase
-
-A short demo of the multimodal coupling pipeline applied to a sea-coast
-recording: audio swell envelope co-evolving with respiration / HRV /
-EEG band power across the audio-only and audio-visual conditions.
-
-https://github.com/marestarellas/HumanNatureAttunement/releases/download/media-v1/showcase_compare-01_web.mp4
-
 ## Repository layout
 
 ```
@@ -139,6 +131,19 @@ coupling structure (linear, $90^\circ$ phase-locked, cross-frequency
 PAC, non-linear / information, complexity-matched). Each row's
 single-method peak corresponds to the family it was built to test —
 the take-home is that no single metric is "best" across coupling types.
+
+## Showcase — video modality features
+
+A short clip showing **oscillatory** and **complexity** features
+extracted live from the video modality of a sea-coast recording. The
+video frames feed into `HNA.modules.video` to produce 1-D feature
+traces that plug into the same coupling / surrogate / stats / viz
+infrastructure used for audio, EEG, ECG, and respiration.
+
+<video src="https://github.com/marestarellas/HumanNatureAttunement/releases/download/media-v1/showcase_compare-01_web.mp4" controls width="100%"></video>
+
+[Download / open the clip directly](https://github.com/marestarellas/HumanNatureAttunement/releases/download/media-v1/showcase_compare-01_web.mp4)
+if your viewer does not embed inline video.
 
 ## Pipeline at a glance
 
