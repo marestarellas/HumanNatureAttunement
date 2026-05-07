@@ -95,6 +95,43 @@ Per-modality preprocessing and modality-agnostic feature extraction
 their own subpackages — see [`src/HNA/README.md`](src/HNA/README.md) for
 the full module map.
 
+## Methods report — visual tour
+
+The first three figures of [`reports/methods/methods.tex`](reports/methods/methods.tex)
+give a visual entry point to the coupling framework.
+
+### Fig 1 — The features × coupling design space
+
+![Framework matrix](figures/report/Methods5_features_x_coupling.png)
+
+A 3 × 4 grid: feature rows (raw signal / oscillatory features /
+complexity features) crossed with coupling-method columns (linear /
+oscillatory / information / complexity). Every coupling analysis lives
+in exactly one cell. Bold cells name canonical methods shipped in the
+HNA toolbox; the figure also makes two identities visible —
+"complexity coupling" is just *linear* coupling on a *complexity*
+feature, and PAC is *oscillatory* coupling between two *oscillatory*
+features.
+
+### Fig 2 — Each coupling family on the same synthetic pair
+
+![Coupling families on one pair](figures/report/Methods1_coupling_families.png)
+
+A constructed audio-vs-respiration pair coupled at 0.20 Hz with a 0.5 s
+phase lag, viewed through one canonical estimator per family:
+cross-correlation (linear), PLV (oscillatory), MI / Pearson scatter
+(information), and fluctuation-curve overlap (complexity).
+
+### Fig 3 — Five clear coupling scenarios
+
+![Five coupling scenarios](figures/report/Methods3_coupling_cases.png)
+
+Five synthetic signal pairs, each constructed to exemplify a single
+coupling structure (linear, $90^\circ$ phase-locked, cross-frequency
+PAC, non-linear / information, complexity-matched). Each row's
+single-method peak corresponds to the family it was built to test —
+the take-home is that no single metric is "best" across coupling types.
+
 ## Pipeline at a glance
 
 ```
