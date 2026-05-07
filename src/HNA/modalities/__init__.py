@@ -15,8 +15,9 @@ without ever re-implementing a Butterworth bandpass or a NeuroKit2 wrapper.
 The coupling / surrogate / stats / viz modules in :mod:`HNA` stay
 modality-agnostic and can be combined freely with any of the helpers below.
 
-`HNA.modalities.video` carries optional dependencies (opencv-python, scipy,
-antropy, neurokit2, pydmd) and is therefore *not* eagerly imported here.
+`HNA.modalities.video` carries the video-specific extras opencv-python
+(required to decode video) and pydmd (optional; falls back to a POD/SVD
+baseline if missing) and is therefore *not* eagerly imported here.
 Install them with ``pip install -e .[video]`` and import the subpackage
 explicitly when needed.
 """

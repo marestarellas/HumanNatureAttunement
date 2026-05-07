@@ -637,9 +637,11 @@ docstring.
 % =========================================================================
 
 \begin{lstlisting}
-# 1. Install the package with the video extras (opencv-python, scipy,
-#    antropy, neurokit2, pydmd). antropy / neurokit2 / pydmd gracefully
-#    degrade to NaN where unavailable; opencv-python is required.
+# 1. Install the package with the video extras. opencv-python is
+#    required to decode video; pydmd is optional (the modal extractor
+#    falls back to a POD/SVD baseline if missing). scipy / antropy /
+#    neurokit2 are base deps of the toolbox and already get installed
+#    as part of the regular package.
 pip install -e .[video]
 
 # 2. Quantify a single clip
@@ -652,7 +654,7 @@ python scripts/figures/video_v3/framework.py   # framework.png
 python scripts/figures/video_v3/all_figures.py         # v3_*.png
 
 # 4. Compile the report
-tectonic report/main_v3.tex
+tectonic reports/video_v3/video_v3.tex
 \end{lstlisting}
 
 \end{document}

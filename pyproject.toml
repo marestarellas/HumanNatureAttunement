@@ -13,7 +13,13 @@ license = { text = "MIT" }
 dependencies = [
   "numpy>=1.24",
   "pandas>=2.1",
+  "scipy>=1.10",        # used across coupling/, dsp.py, modalities/, features/
   "soundfile>=0.12",
+  "antropy>=0.1.4",     # permutation / sample / spectral entropy, fractal dims
+                        # (features/entropy, features/fractal, coupling/complexity,
+                        #  modalities/video)
+  "neurokit2>=0.2",     # DFA, Hurst, Lempel-Ziv, multiscale entropy, ECG/HRV
+                        # cleaning (modalities/ecg, modalities/video)
 ]
 
 [project.optional-dependencies]
@@ -24,14 +30,11 @@ info = [
   "pyinform>=0.2",   # Schreiber transfer entropy (binned)
   "dit>=1.5",        # Williams-Beer / BROJA partial information decomposition
 ]
-# Video modality (HNA.modalities.video). All deps are optional; missing
-# antropy / neurokit2 / pydmd gracefully degrade to NaN where the
-# corresponding measure is unavailable.
+# Video modality (HNA.modalities.video). opencv-python is required to
+# decode video; pydmd is optional (the modal extractor falls back to a
+# POD/SVD baseline if missing).
 video = [
   "opencv-python>=4.6",
-  "scipy>=1.10",
-  "antropy>=0.1.4",     # permutation / sample / spectral entropy, fractal dims
-  "neurokit2>=0.2",     # DFA, Hurst, Lempel--Ziv, multiscale entropy
   "pydmd>=0.4",         # Dynamic Mode Decomposition (modal extractor)
 ]
 
