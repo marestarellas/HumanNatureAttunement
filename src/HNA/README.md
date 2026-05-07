@@ -13,7 +13,7 @@ respiration cleaning, …).
 ## Module map
 
 ```
-HNA/modules/
+HNA/
 ├── dsp.py             Generic signal-processing primitives (filters, envelope,
 │                      NaN handling, resample, z-score, butter SOS).
 ├── coupling/          Four-family coupling subpackage. The package's

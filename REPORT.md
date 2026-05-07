@@ -4,7 +4,7 @@
 **Pilot dataset:** `data/processed/sub-{02..06}/`
 **Goal:** Quantify how respiration, cardiac, and cortical rhythms entrain
 to the temporal structure of nature sounds (sea waves), using a multimodal
-coupling toolbox built around `src/HNA/modules/`.
+coupling toolbox built around `src/HNA/`.
 
 ---
 
@@ -218,26 +218,32 @@ right small-N readout (Fisher 1993).
 
 ---
 
-## 5. Toolbox (`src/HNA/modules/`)
+## 5. Toolbox (`src/HNA/`)
 
-See `src/HNA/modules/README.md` for full guidelines. Summary:
+See `src/HNA/README.md` for full guidelines. Summary:
 
 ```
-HNA/modules/
+HNA/
 ├── dsp.py           Generic signal-processing primitives.
-├── coupling.py      xcorr / coherence / PLV / wPLI + windowed variants + plot helpers.
-├── surrogates.py    Phase-shuffle / time-shift surrogates + generic test harness.
-├── stats.py         Fisher z, BH-FDR, Friedman+post-hoc, Rayleigh, slope tests.
-├── viz.py           Paper-ready style + canonical condition palette + sig stars.
-├── audio.py         Audio modality: envelope decomposition into 12 bands.
-├── eeg.py           EEG modality: filters + PSD bands + entropy.
+├── coupling/        Four-family subpackage: linear / oscillatory /
+│                    information / complexity. Re-exports the full
+│                    public API at `from HNA.coupling import *`.
+├── features/        Modality-agnostic features: PSD, entropy, fractal,
+│                    FOOOF aperiodic + windowed channel iterator.
+├── modalities/      Cleaners only (audio, eeg, respiration, ecg).
+├── surrogates.py    Phase-shuffle / time-shift surrogates + harness.
+├── stats.py         Fisher z, BH-FDR, Friedman+post-hoc, Rayleigh,
+│                    slope tests, cluster-based permutation testing.
+├── viz/             Paper-ready style + sig helpers + reusable
+│                    plotting helpers (forest, polar, spectrum, topomap).
 └── utils.py         Dataset I/O + alignment + condition-segment extraction.
 ```
 
-Reusability: the `coupling`, `stats`, `surrogates`, and `viz` modules are
-modality-agnostic and meant to be reused on any pair of 1-D physiological
-signals. Adding new modalities (video features, EDA, …) is a matter of
-adding a sibling module next to `audio.py` / `eeg.py`.
+Reusability: every module under `coupling/`, `features/`, `stats.py`,
+`surrogates.py`, and `viz/` is modality-agnostic and meant to be reused
+on any pair of 1-D physiological signals. Adding new modalities
+(video features, EDA, ...) is a matter of adding a sibling cleaner
+inside `modalities/`.
 
 ---
 

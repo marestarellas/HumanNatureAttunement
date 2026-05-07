@@ -14,7 +14,7 @@ coasts of Chile and Mallorca, Spain).
 
 ```
 HumanNatureAttunement/
-├── src/HNA/modules/        ← the HNA toolbox (importable Python package)
+├── src/HNA/                ← the HNA toolbox (importable as ``HNA``)
 │   ├── dsp.py              generic signal-processing primitives (filters, envelope, NaN, resample)
 │   ├── coupling/           four-family coupling subpackage
 │   │   ├── linear.py       windowed cross-correlation (time-domain Pearson alignment)
@@ -71,6 +71,30 @@ HumanNatureAttunement/
     └── report/             curated paper-ready set (tracked); rest is regenerable & gitignored
 ```
 
+## What's in the toolbox
+
+The HNA toolbox is built around the question *"do two 1-D physiological/sensory
+signals couple, and how?"* The answer depends on what kind of structure
+you suspect, so the toolbox groups every coupling estimator into four
+families that each ask a different question:
+
+| Family            | Asks                                                     | Methods                                                        |
+|-------------------|----------------------------------------------------------|----------------------------------------------------------------|
+| **Linear**        | Do amplitudes co-vary linearly, with possible lag?       | windowed cross-correlation                                     |
+| **Oscillatory**   | Are they synchronised in phase / share a band?           | Welch coherence, PLV, wPLI, PAC (Tort MI, Canolty MVL)         |
+| **Information**   | Is there *any* (also non-linear) dependence, with direction? | MI, effective MI (bias-corrected), Granger, transfer entropy   |
+| **Complexity**    | Do their *scaling* statistics match?                     | exponent / fluctuation / MSE matching, alpha-trace coupling    |
+
+All families share a windowed estimator API and plug into the same
+surrogate-test (`HNA.surrogates.surrogate_test`), cluster-permutation
+(`HNA.stats.cluster_permutation_paired_1d`), and paper-style plotting
+(`HNA.viz.*`) infrastructure.
+
+Per-modality preprocessing and modality-agnostic feature extraction
+(PSD bands, entropy, fractal exponents, FOOOF aperiodic) are kept in
+their own subpackages — see [`src/HNA/README.md`](src/HNA/README.md) for
+the full module map.
+
 ## Pipeline at a glance
 
 ```
@@ -84,19 +108,21 @@ scripts/preprocessing/02_compute_audio_envelopes.py
         │   12 band-organized audio envelope columns at 256 Hz
         ▼
 scripts/preprocessing/03_merge_audio_into_tables.py
-        │   → data/processed/sub-XX/tables/merged_annotated_with_audio.csv
+        │   -> data/processed/sub-XX/tables/merged_annotated_with_audio.csv
         ▼
 scripts/preprocessing/cut_audio_by_conditions.py + preprocess_ecg.py
         │   per-condition WAVs, cleaned ECG + R-peaks
         ▼
 scripts/features/extract_eeg_features.py + extract_hrv_features.py
-        │   band-power, entropy, HRV (NeuroKit2)
+        │   PSD band-power + entropy + (FOOOF aperiodic)  via HNA.features
+        │   HRV time series                               via HNA.modalities.ecg
         ▼
-scripts/analysis/{run_resp_audio_coupling, run_hrv_audio_coupling, …}
-        │   xcorr / coherence / PLV / wPLI / MI per (subject, condition)
+scripts/analysis/{run_resp_audio_coupling, run_hrv_audio_coupling, ...}
+        │   any of the 4 coupling families, per (subject, condition)
         ▼
 scripts/stats/* + scripts/figures/analysis_*
-        │   LMMs, Friedman + Wilcoxon post-hoc, paper-ready figures
+        │   LMMs, Friedman + Wilcoxon post-hoc, cluster permutation,
+        │   paper-ready figures
         ▼
 reports/preliminary_results/report.tex
 ```
@@ -135,6 +161,27 @@ python scripts/figures/analysis_A_spectrum_overlay.py      --subjects 2 3 4 5 6 
 python scripts/figures/analysis_nature_vs_rest.py          --subjects 2 3 4 5 6 --modalities resp hrv_meannn hrv_meannn_swell_0p1 --data-dir "$DATA"
 ```
 
+## Methods-suite figures
+
+Four standalone, paper-ready figures built on synthetic signals — they
+explain *what each coupling family detects* without depending on the
+pilot dataset. Useful as the methods section of a paper or as a
+teaching reference.
+
+```bash
+PYTHONPATH=src python scripts/figures/methods_fig1_coupling_families.py
+PYTHONPATH=src python scripts/figures/methods_fig2_sensitivity.py
+PYTHONPATH=src python scripts/figures/methods_fig3_coupling_cases.py
+PYTHONPATH=src python scripts/figures/methods_fig4_cases_with_psd.py
+```
+
+| Figure | Purpose |
+|---|---|
+| `figures/report/Methods1_coupling_families.{png,pdf}` | One synthetic audio-vs-respiration pair shown four ways — one canonical estimator from each family (xcorr, PLV, MI, fluctuation matching). All four panels fire on the same coupling. |
+| `figures/report/Methods2_sensitivity_matrix.{png,pdf}` | Heatmap of nine methods × six signal-pair types with known coupling structure. Column-normalized raw metric values; the diagonal pattern shows which method peaks on which kind of coupling. |
+| `figures/report/Methods3_coupling_cases.{png,pdf}` | Five coupling scenarios (linear, phase-only, PAC, nonlinear, complexity-matched) shown side-by-side with each method's response — demonstrates that no single metric is "best", and that different families pick up different structures. |
+| `figures/report/Methods4_cases_with_psd.{png,pdf}` | Same five cases as Fig 3 but with an extra Welch PSD + FOOOF aperiodic / peak panel per row. Surfaces the *spectral signature* of each coupling type — particularly informative for complexity matching, where the only similarity between signals is their 1/f exponent. |
+
 ## Building the preliminary report
 
 ```bash
@@ -148,7 +195,7 @@ with `conda install -c conda-forge tectonic` or `cargo install tectonic`.
 
 ## Documentation
 
-- [`src/HNA/modules/README.md`](src/HNA/modules/README.md) — toolbox guide:
+- [`src/HNA/README.md`](src/HNA/README.md) — toolbox guide:
   module map, coupling-method table, surrogate testing recipe, plotting
   style, guidelines for adding new modalities.
 - [`REPORT.md`](REPORT.md) — narrative project status + reproduction instructions.
