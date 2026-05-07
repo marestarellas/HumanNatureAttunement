@@ -1,37 +1,44 @@
-"""Complexity matching: do two signals share the same scaling structure?
+"""Linear coupling on complexity features.
 
-The metrics in :mod:`HNA.coupling` ask whether two signals **co-fluctuate**
-— amplitude, phase, or distributional dependence at the level of individual
-samples. Complexity matching asks something different: do the *higher-order
-statistics* (fractal dimension, DFA exponent, multiscale entropy) match
-between two signals, regardless of whether the signals themselves co-vary?
+Despite the subpackage name, **all methods here are linear comparisons
+applied to a complexity feature**. The complexity character lives in the
+*feature* (DFA α, F(s), MSE, FOOOF aperiodic exponent) — the comparison
+step itself is a plain Pearson r (or a |Δ| similarity score on two
+scalars). This subpackage exists as an organisational unit because all
+of its methods share the same conceptual question — *do two signals
+share scaling / regularity structure?* — even though the operation that
+implements that question is linear.
 
-The original observation, going back to Marmelat & Delignières (2012), is
-that interpersonal coordination (and human-environment attunement) is
-better captured by *matched scaling* than by linear correlation: two
-participants walking together don't synchronise step-for-step, but their
-gait variability spectra (the slope of the 1/f-ish trend in stride-interval)
-become very similar.
+A genuine "complexity coupling family" — methods whose *coupling step*
+is itself non-linear and scale-aware — would include detrended
+cross-correlation analysis (DCCA), multiscale cross-entropy, and
+multiscale cross-mutual-information. None of these are in HNA today.
+They are noted as future work in the methods report.
 
-This module ships three flavours of estimator:
+The original Marmelat & Delignières (2012) observation: interpersonal
+coordination (and human–environment attunement) is sometimes better
+captured by *matched scaling* than by sample-by-sample correlation —
+two participants walking together don't synchronise step-for-step, but
+their gait-variability scaling exponents become very similar.
 
-**Static (scalar-vs-scalar)** — one number per pair of signals
+The module exposes four estimators, each operating on a different
+**observable** of complexity:
+
+**Scalar (one number per signal)**
 - :func:`exponent_matching`     — ``1 - |α_x - α_y| / α_max`` ∈ [0, 1]
-- :func:`exponent_correlation`  — Pearson r of α values across many cells
+- :func:`exponent_correlation`  — Pearson r of α scalars across many cells
 
-**Multi-scale (curve-vs-curve)** — one number per pair, but derived from
-multiple scales
+**Curve over scales (one vector per signal, indexed by scale)**
 - :func:`fluctuation_curve`     — DFA fluctuation function ``F(s)`` for one signal
-- :func:`fluctuation_matching`  — log-log correlation of two F(s) curves
+- :func:`fluctuation_matching`  — log-log Pearson r of two F(s) curves
 - :func:`mse_curve`             — multiscale (sample) entropy curve
-- :func:`mse_matching`          — correlation of two MSE curves
+- :func:`mse_matching`          — Pearson r of two MSE curves
 
-**Time-resolved (composes with the existing coupling family)** — windowed
-scaling exponent traces ``α(t)``, then any standard coupling metric on the
-two traces
-- :func:`windowed_exponent`     — slide a window over a 1-D signal, return α(t)
-- :func:`complexity_coupling`   — windowed_exponent on each signal +
-  Pearson / MI between the two α(t) traces
+**Trace over time (one vector per signal, indexed by window)**
+- :func:`windowed_exponent`     — slide a window, return scaling exponent per window
+- :func:`complexity_coupling`   — windowed_exponent on each signal, then
+  Pearson / MI of the two traces (the only one of the four that can take
+  any standard coupling metric on the resulting traces)
 """
 from __future__ import annotations
 
