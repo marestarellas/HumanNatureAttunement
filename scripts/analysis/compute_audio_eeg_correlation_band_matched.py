@@ -12,7 +12,7 @@ Why a separate script?
 - The original ``compute_audio_eeg_correlation.py`` re-extracts the audio
   envelope from each per-condition WAV at audio rate (~44 kHz) and
   bandpass-filters at extremely low normalized cutoffs (e.g.
-  ``0.5/22050 ≈ 2e-5`` for the delta band). ``sosfiltfilt`` handles this
+  ``0.5/22050 ~= 2e-5`` for the delta band). ``sosfiltfilt`` handles this
   but the filter is borderline numerically.
 - The merged-CSV envelopes are produced in
   ``02_compute_audio_envelopes.py`` using two stable processing rates
@@ -43,7 +43,7 @@ from scipy.stats import pearsonr
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
-from HNA.modules.utils import extract_condition_data
+from HNA.utils import extract_condition_data
 
 
 # Mapping EEG band -> the audio envelope column that was prefiltered to the same band.

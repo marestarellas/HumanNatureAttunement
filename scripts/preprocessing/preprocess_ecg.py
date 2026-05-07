@@ -17,13 +17,13 @@ Usage:
 import argparse
 import numpy as np
 import pandas as pd
-import neurokit2 as nk
 from pathlib import Path
 import warnings
 warnings.filterwarnings('ignore')
 
-# HNA utils
-from HNA.modules.utils import extract_condition_data
+# HNA toolbox: ECG cleaning + R-peak detection lives in modalities.ecg
+from HNA.utils import extract_condition_data
+from HNA.modalities.ecg import preprocess_ecg_segment
 
 # Paths
 ROOT = Path(__file__).resolve().parents[2]
@@ -31,42 +31,6 @@ DEFAULT_DATA_DIR = ROOT / "data"
 
 # Sampling rate
 FS = 256.0
-
-
-def preprocess_ecg_segment(ecg_signal, fs=FS):
-    """
-    Clean ECG signal and detect R-peaks using NeuroKit2.
-    
-    Parameters
-    ----------
-    ecg_signal : array-like
-        Raw ECG signal
-    fs : float
-        Sampling rate in Hz
-    
-    Returns
-    -------
-    cleaned_ecg : np.ndarray
-        Cleaned ECG signal
-    rpeaks : np.ndarray
-        Indices of detected R-peaks
-    """
-    try:
-        # Clean ECG signal
-        cleaned_ecg = nk.ecg_clean(ecg_signal, sampling_rate=fs, method='neurokit')
-        
-        # Detect R-peaks
-        signals, info = nk.ecg_peaks(cleaned_ecg, sampling_rate=fs, method='neurokit')
-        rpeaks = info['ECG_R_Peaks']
-        
-        print(f"    Detected {len(rpeaks)} R-peaks in {len(ecg_signal)/fs:.1f}s "
-              f"({len(rpeaks)/(len(ecg_signal)/fs)*60:.1f} bpm avg)")
-        
-        return cleaned_ecg, rpeaks
-        
-    except Exception as e:
-        print(f"    ERROR in ECG preprocessing: {e}")
-        return None, None
 
 
 def process_subject(subject_id, data_dir=DEFAULT_DATA_DIR, overwrite=False):

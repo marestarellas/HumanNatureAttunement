@@ -20,7 +20,7 @@ Filter design / processing rationale
   so all output columns share a common time axis with EEG/physio tables.
 
 The resulting envelopes can be coupled with any other 1-D physiological
-signal (respiration, HRV, EEG) via :mod:`HNA.modules.coupling`.
+signal (respiration, HRV, EEG) via :mod:`HNA.coupling`.
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ import numpy as np
 import pandas as pd
 import soundfile as sf
 
-from .dsp import (
+from ..dsp import (
     bandpass as _bandpass,
     lowpass as _lowpass,
     highpass as _highpass,

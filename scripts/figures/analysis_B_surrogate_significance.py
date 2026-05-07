@@ -35,11 +35,12 @@ import matplotlib.pyplot as plt
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
-from HNA.modules.utils import extract_condition_data
-from HNA.modules.dsp import interpolate_nan
-from HNA.modules.coupling import plv_phase_sync
-from HNA.modules.surrogates import surrogate_test
-from HNA.modules.viz import (
+from HNA.utils import extract_condition_data
+from HNA.dsp import interpolate_nan
+from HNA.coupling import plv_phase_sync
+from HNA.modalities.respiration import clean_respiration
+from HNA.surrogates import surrogate_test
+from HNA.viz import (
     use_paper_style, CONDITION_COLORS, save_figure, sig_stars,
 )
 
@@ -54,14 +55,6 @@ def _plv_metric(resp: np.ndarray, env: np.ndarray) -> float:
     return float(res.plv)
 
 
-def _respiration_clean_inplace(df: pd.DataFrame) -> np.ndarray:
-    """Cheap respiration cleaning consistent with the coupling pipeline."""
-    from scipy.signal import butter, sosfiltfilt
-    sos = butter(4, [0.05 / (FS / 2), 1.0 / (FS / 2)], btype="band", output="sos")
-    resp = sosfiltfilt(sos, interpolate_nan(df["respiration"].to_numpy(float)))
-    return resp
-
-
 def _process_subject(subj: int, conditions: list[str], data_dir: Path,
                      n_surrogates: int, rng_seed_base: int = 42):
     sub_folder = f"sub-{subj:02d}"
@@ -70,7 +63,7 @@ def _process_subject(subj: int, conditions: list[str], data_dir: Path,
         print(f"  SKIP {sub_folder}: missing merged CSV")
         return None
     df = pd.read_csv(p, low_memory=False)
-    df["respiration_clean"] = _respiration_clean_inplace(df)
+    df["respiration_clean"] = clean_respiration(df["respiration"], fs=FS)
 
     rows = []
     for cond in conditions:

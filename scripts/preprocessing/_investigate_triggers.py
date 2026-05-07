@@ -14,7 +14,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
-from HNA.modules.utils import (  # noqa: E402
+from HNA.utils import (  # noqa: E402
     load_data,
     align_by_first_triggers,
     find_last_high_indices,

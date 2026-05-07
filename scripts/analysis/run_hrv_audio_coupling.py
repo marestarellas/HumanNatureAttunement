@@ -16,17 +16,20 @@ import os, json, argparse
 from pathlib import Path
 import numpy as np
 import pandas as pd
-from scipy.interpolate import interp1d
 import matplotlib.pyplot as plt
 from types import SimpleNamespace
 
 # HNA utils
-from HNA.modules.utils import get_condition_segments
-from HNA.modules.coupling import (
+from HNA.utils import get_condition_segments
+from HNA.coupling import (
     windowed_xcorr, band_coherence_windowed,
     plv_phase_sync, windowed_plv,
     wpli_phase_sync, windowed_wpli,
     plot_coupling_over_time, plot_coherence_results,
+)
+from HNA.modalities.ecg import (
+    interpolate_hrv_to_regular_grid,
+    match_audio_to_hrv,  # noqa: F401  (kept for downstream callers)
 )
 
 # ---------- repo paths ----------
@@ -48,88 +51,8 @@ WPLI_WIN, WPLI_STEP = 120.0, 10.0
 DEFAULT_HRV_FEATURES = ['HRV_RMSSD', 'HRV_MeanNN', 'HRV_SDNN']
 
 
-def interpolate_hrv_to_regular_grid(hrv_df, feature_name, fs_target):
-    """
-    Interpolate HRV feature from windowed data to regular time grid.
-    
-    Parameters
-    ----------
-    hrv_df : pd.DataFrame
-        HRV features with time_start, time_end columns
-    feature_name : str
-        Name of HRV feature to interpolate (e.g., 'HRV_RMSSD')
-    fs_target : float
-        Target sampling rate in Hz
-    
-    Returns
-    -------
-    time_grid : np.ndarray
-        Regular time grid
-    hrv_interp : np.ndarray
-        Interpolated HRV values
-    """
-    # Use window centers as time points
-    time_centers = (hrv_df['time_start'].values + hrv_df['time_end'].values) / 2
-    hrv_values = hrv_df[feature_name].values
-    
-    # Remove NaN and Inf values
-    valid_mask = np.isfinite(hrv_values)
-    time_centers = time_centers[valid_mask]
-    hrv_values = hrv_values[valid_mask]
-    
-    # Check if enough valid data
-    valid_ratio = valid_mask.sum() / len(valid_mask)
-    if len(time_centers) < 2:
-        raise ValueError(f"Not enough valid {feature_name} values (only {len(time_centers)} valid points)")
-    if valid_ratio < 0.5:
-        raise ValueError(f"Too many NaN/Inf in {feature_name} ({valid_ratio*100:.1f}% valid data)")
-    
-    # Create regular time grid
-    t_start = time_centers[0]
-    t_end = time_centers[-1]
-    time_grid = np.arange(t_start, t_end, 1.0/fs_target)
-    
-    # Interpolate (linear interpolation)
-    interp_func = interp1d(time_centers, hrv_values, kind='linear', 
-                          bounds_error=False, fill_value='extrapolate')
-    hrv_interp = interp_func(time_grid)
-    
-    # Clip extrapolated values to reasonable range (within 2x original range)
-    orig_min, orig_max = np.nanmin(hrv_values), np.nanmax(hrv_values)
-    margin = (orig_max - orig_min) * 0.5
-    hrv_interp = np.clip(hrv_interp, orig_min - margin, orig_max + margin)
-    
-    return time_grid, hrv_interp
-
-
-def match_audio_to_hrv(audio_env, audio_time, hrv_time, hrv_fs):
-    """
-    Match audio envelope to HRV time grid.
-    
-    Parameters
-    ----------
-    audio_env : np.ndarray
-        Audio envelope signal
-    audio_time : np.ndarray
-        Audio time vector
-    hrv_time : np.ndarray
-        HRV time grid
-    hrv_fs : float
-        HRV sampling rate
-    
-    Returns
-    -------
-    audio_matched : np.ndarray
-        Audio envelope matched to HRV time grid
-    """
-    # Interpolate audio to HRV time grid
-    interp_func = interp1d(audio_time, audio_env, kind='linear',
-                          bounds_error=False, fill_value=np.nan)
-    audio_matched = interp_func(hrv_time)
-    
-    # Remove NaN at edges
-    valid_mask = ~np.isnan(audio_matched)
-    return audio_matched[valid_mask]
+# HRV<->time-grid and HRV<->audio resampling helpers now live in
+# ``HNA.modalities.ecg`` (imported at the top of the file).
 
 
 def save_coupling_plots(plots_dir: Path, cond: str, hrv_feature: str,
@@ -155,7 +78,7 @@ def save_coupling_plots(plots_dir: Path, cond: str, hrv_feature: str,
 
     # 3) signal alignment validation (3-panel: overlay, lag, sliding correlation)
     if hrv_signal is not None and env_matched is not None and fs is not None:
-        from HNA.modules.coupling import plot_signal_alignment_validation
+        from HNA.coupling import plot_signal_alignment_validation
         fig3 = plot_signal_alignment_validation(
             hrv_signal, env_matched, fs=fs,
             cond_label=f"{cond} ({hrv_feature})",

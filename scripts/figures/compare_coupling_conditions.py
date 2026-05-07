@@ -26,7 +26,7 @@ warnings.filterwarnings('ignore')
 # Use the toolbox's paper-ready style + canonical condition palette.
 _REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO / "src"))
-from HNA.modules.viz import use_paper_style, CONDITION_COLORS, save_figure, sig_stars
+from HNA.viz import use_paper_style, CONDITION_COLORS, save_figure, sig_stars
 
 use_paper_style()
 COLORS = CONDITION_COLORS

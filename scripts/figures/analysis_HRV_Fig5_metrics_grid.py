@@ -31,7 +31,7 @@ from scipy import stats as sps
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
-from HNA.modules.viz import use_paper_style, CONDITION_COLORS, save_figure, sig_stars
+from HNA.viz import use_paper_style, CONDITION_COLORS, save_figure, sig_stars
 
 
 METRIC_LABELS = {"plv": "PLV", "wpli": "wPLI", "coh_band_avg": "Band-avg coherence"}

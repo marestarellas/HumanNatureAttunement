@@ -12,7 +12,7 @@ Three complementary analyses (one figure per modality):
 A) Paired Wilcoxon on per-subject means (n=5 paired)
 B) Window-level mixed model:  metric ~ block + (1|subject)
    on every coupling-window value pooled across conditions
-C) Per-subject Δ = mean(NATURE) - mean(REST), forest plot
+C) Per-subject Delta = mean(NATURE) - mean(REST), forest plot
 
 Outputs:
   figures/report/Fig_nature_vs_rest_<modality>.{png,pdf}
@@ -35,9 +35,9 @@ from scipy import stats as sps
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
-from HNA.modules.viz import use_paper_style, save_figure, sig_stars
-from HNA.modules.utils import get_condition_segments
-from HNA.modules.coupling import (
+from HNA.viz import use_paper_style, save_figure, sig_stars
+from HNA.utils import get_condition_segments
+from HNA.coupling import (
     windowed_xcorr, band_coherence_windowed,
     plv_phase_sync, windowed_plv,
     wpli_phase_sync, windowed_wpli,

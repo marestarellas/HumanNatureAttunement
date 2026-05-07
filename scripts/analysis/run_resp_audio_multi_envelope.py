@@ -27,18 +27,18 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from scipy.signal import butter, sosfiltfilt
 from sklearn.feature_selection import mutual_info_regression
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
-from HNA.modules.utils import extract_condition_data
-from HNA.modules.dsp import interpolate_nan
-from HNA.modules.coupling import (
+from HNA.utils import extract_condition_data
+from HNA.dsp import interpolate_nan
+from HNA.coupling import (
     windowed_xcorr, band_coherence_windowed,
     plv_phase_sync, wpli_phase_sync,
 )
+from HNA.modalities.respiration import clean_respiration as _clean_respiration
 
 
 FS = 256.0
@@ -56,15 +56,8 @@ DEFAULT_ENV_COLS = [
 
 
 # --------------------------- helpers ---------------------------
-def _clean_respiration(series: pd.Series, fs: float = FS) -> np.ndarray:
-    """Same cleaning as run_resp_audio_coupling.py: 0.05-1 Hz BP + zscore."""
-    sos = butter(4, [0.05 / (fs / 2), 1.0 / (fs / 2)], btype="band", output="sos")
-    x = interpolate_nan(series.to_numpy(float))
-    x -= np.nanmean(x)
-    mx = np.nanmax(np.abs(x)) or 1.0
-    x = x / mx
-    x = sosfiltfilt(sos, x)
-    return (x - x.mean()) / (x.std() + 1e-12)
+# Respiration cleaning is the canonical 0.05–1 Hz bandpass + z-score from
+# ``HNA.modalities.respiration`` (imported above).
 
 
 def _mi_score(x: np.ndarray, y: np.ndarray, n_neighbors: int = 3) -> float:

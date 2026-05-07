@@ -32,9 +32,9 @@ from scipy.interpolate import interp1d
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
-from HNA.modules.dsp import bandpass, lowpass, interpolate_nan
-from HNA.modules.utils import extract_condition_data
-from HNA.modules.viz import (
+from HNA.dsp import bandpass, lowpass, interpolate_nan
+from HNA.utils import extract_condition_data
+from HNA.viz import (
     use_paper_style, MODALITY_COLORS, save_figure, _figsize,
 )
 

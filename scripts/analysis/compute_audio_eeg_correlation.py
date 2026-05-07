@@ -37,7 +37,7 @@ warnings.filterwarnings('ignore')
 _ROOT = Path(__file__).resolve().parents[2]
 if str(_ROOT / "src") not in sys.path:
     sys.path.insert(0, str(_ROOT / "src"))
-from HNA.modules.dsp import (
+from HNA.dsp import (
     bandpass as _bandpass,
     hilbert_envelope as _hilbert_envelope,
     resample_to as _resample_to,

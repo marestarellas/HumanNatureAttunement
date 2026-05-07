@@ -36,7 +36,7 @@ from scipy.stats import spearmanr
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
-from HNA.modules.viz import (
+from HNA.viz import (
     use_paper_style, CONDITION_COLORS, save_figure, fmt_p,
 )
 

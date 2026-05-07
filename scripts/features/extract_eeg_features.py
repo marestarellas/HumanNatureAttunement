@@ -25,8 +25,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'src'))
 
-from HNA.modules.eeg import filter_eeg, compute_psd_features, compute_entropy_features
-from HNA.modules.utils import extract_condition_data
+from HNA.modalities.eeg import filter_eeg
+from HNA.features import compute_psd_features, compute_entropy_features
+from HNA.utils import extract_condition_data
 
 
 def process_subject(subject_folder, data_dir, window_sec=5, overlap_sec=0):

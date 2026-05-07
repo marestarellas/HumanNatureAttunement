@@ -4,7 +4,7 @@
 Step 1 of the Human Nature Attunement preprocessing pipeline.
 
 For each subject:
-- Load raw EEG (EEG.csv + D in.csv) and physio (ExG/Analog AUX/D out) via HNA.modules.utils.load_data
+- Load raw EEG (EEG.csv + D in.csv) and physio (ExG/Analog AUX/D out) via HNA.utils.load_data
 - Align EEG <-> physio on first triggers
 - Detect the AUDIO_SYNC + condition-boundary pulses on the condition_triggers channel
 - Apply per-subject trigger patches from config/subjects.json
@@ -29,7 +29,7 @@ import numpy as np
 import pandas as pd
 import soundfile as sf
 
-from HNA.modules.utils import (
+from HNA.utils import (
     align_by_first_triggers,
     annotate_conditions,
     find_last_high_indices,

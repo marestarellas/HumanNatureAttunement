@@ -95,7 +95,7 @@ under the corrected labels.
 ## 3. Figures (`figures/report/`)
 
 All figures are saved as both PNG (300 dpi) and PDF, with consistent
-paper-quality styling driven by `HNA.modules.viz.use_paper_style()` and
+paper-quality styling driven by `HNA.viz.use_paper_style()` and
 the canonical condition palette.
 
 ### Original five (with where MI was added)
@@ -175,7 +175,7 @@ absolute MI values (~1.0+ on slow swells) should not be interpreted as
 "~1 nat of shared information per sample". The same bias hits every
 condition equally, so **relative comparisons** (between conditions, or
 between bands within a condition) are valid. For absolute claims, use
-`HNA.modules.surrogates.surrogate_test(...)` to subtract the
+`HNA.surrogates.surrogate_test(...)` to subtract the
 phase-shuffled null mean (recommended addition for the published
 version).
 
@@ -260,7 +260,7 @@ adding a sibling module next to `audio.py` / `eeg.py`.
 3. **sub-08 trigger problems.** Lower threshold (1950) is set; remaining
    anomalies need a manual look at the trigger trace.
 4. **sub-00, sub-01.** Vendor BBT multi-block layout; needs a dedicated
-   loader in `HNA.modules.utils` (or a sibling `io_bbt.py`).
+   loader in `HNA.utils` (or a sibling `io_bbt.py`).
 5. **Surrogate-corrected effective MI** for the report's MI panel (cheap
    to compute; recommended for absolute MI claims).
 6. **Optional**: collapse the per-condition and per-subject *_coherence /

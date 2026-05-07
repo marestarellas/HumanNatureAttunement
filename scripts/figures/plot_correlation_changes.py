@@ -112,7 +112,7 @@ def plot_violin_comparison(df, metric, condition1, condition2, output_dir, stats
     _REPO = Path(__file__).resolve().parents[2]
     if str(_REPO / "src") not in _sys.path:
         _sys.path.insert(0, str(_REPO / "src"))
-    from HNA.modules.viz import use_paper_style, CONDITION_COLORS, save_figure, sig_stars
+    from HNA.viz import use_paper_style, CONDITION_COLORS, save_figure, sig_stars
     use_paper_style()
 
     # Use raw correlation metric for visualization (z-transform happens in stats).

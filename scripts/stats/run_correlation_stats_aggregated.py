@@ -1,4 +1,4 @@
-what """
+"""
 Aggregated statistical analysis for audio-EEG correlation - one model per band.
 
 Uses all channels and subjects together with nested random effects for better power.

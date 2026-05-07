@@ -36,7 +36,7 @@ from scipy import stats as sps
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
-from HNA.modules.viz import use_paper_style, CONDITION_COLORS, save_figure, sig_stars
+from HNA.viz import use_paper_style, CONDITION_COLORS, save_figure, sig_stars
 
 
 # Modality / feature map. Each row is a modality, each tuple is (column, label).

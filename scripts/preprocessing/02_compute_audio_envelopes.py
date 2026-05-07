@@ -48,7 +48,7 @@ ROOT = Path(__file__).resolve().parents[2]        # .../HumanNatureAttunement
 sys.path.insert(0, str(ROOT / "src"))
 PROCESSED = ROOT / "data" / "processed"
 
-from HNA.modules.dsp import (
+from HNA.dsp import (
     bandpass as _bandpass,
     lowpass as _lowpass,
     highpass as _highpass,

@@ -32,8 +32,8 @@ from sklearn.feature_selection import mutual_info_regression
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
-from HNA.modules.utils import get_condition_segments
-from HNA.modules.coupling import (
+from HNA.utils import get_condition_segments
+from HNA.coupling import (
     windowed_xcorr, band_coherence_windowed,
     plv_phase_sync, wpli_phase_sync,
 )

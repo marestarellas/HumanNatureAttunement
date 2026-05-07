@@ -22,7 +22,7 @@ import matplotlib.pyplot as plt
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
-from HNA.modules.viz import use_paper_style, save_figure
+from HNA.viz import use_paper_style, save_figure
 
 
 METRIC_LABELS = {

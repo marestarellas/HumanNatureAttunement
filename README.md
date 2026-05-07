@@ -15,13 +15,24 @@ coasts of Chile and Mallorca, Spain).
 ```
 HumanNatureAttunement/
 ├── src/HNA/modules/        ← the HNA toolbox (importable Python package)
-│   ├── dsp.py              generic signal-processing primitives
-│   ├── coupling.py         xcorr / coherence / PLV / wPLI / windowed MI + plot helpers
+│   ├── dsp.py              generic signal-processing primitives (filters, envelope, NaN, resample)
+│   ├── coupling/           four-family coupling subpackage
+│   │   ├── linear.py       windowed cross-correlation (time-domain Pearson alignment)
+│   │   ├── oscillatory.py  coherence + PLV/wPLI + PAC (Tort MI, Canolty MVL, comodulogram)
+│   │   ├── information.py  MI + effective MI + Granger + transfer-entropy stub
+│   │   ├── complexity.py   exponent / fluctuation / MSE matching + complexity_coupling
+│   │   └── _plots.py       shared plot helpers (alignment, coupling-over-time, coherence)
+│   ├── features/           modality-agnostic feature extraction (PSD, entropy, fractal, FOOOF)
+│   │   ├── psd.py / entropy.py / fractal.py / aperiodic.py
+│   │   └── windowed.py     generic windowed_channel_features iterator
+│   ├── modalities/         per-signal cleaners only
+│   │   ├── audio.py        decompose_envelope into 12 bands
+│   │   ├── eeg.py          filter_eeg (multi-channel Butterworth)
+│   │   ├── respiration.py  clean_respiration (0.05-1 Hz BP + z-score)
+│   │   └── ecg.py          ECG cleaning + R-peaks + windowed HRV + HRV<->audio resampling
 │   ├── surrogates.py       phase-shuffle / time-shift surrogates + generic test harness
-│   ├── stats.py            Fisher z, BH-FDR, Friedman + post-hoc, circular Rayleigh, slope tests
-│   ├── viz.py              paper-ready matplotlib style + canonical condition palette
-│   ├── audio.py            MODALITY: audio envelope decomposition into 12 bands
-│   ├── eeg.py              MODALITY: EEG band-power + entropy
+│   ├── stats.py            Fisher z, BH-FDR, Friedman+post-hoc, Rayleigh, slope tests, cluster permutation
+│   ├── viz/                plotting subpackage: style + sig helpers + forest/polar/spectrum/topomap helpers
 │   ├── utils.py            data loading, alignment, condition extraction
 │   └── README.md           toolbox guideline & module map
 │

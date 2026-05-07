@@ -6,13 +6,12 @@ import os, json, argparse
 from pathlib import Path
 import numpy as np
 import pandas as pd
-from scipy.signal import butter, sosfiltfilt
 import matplotlib.pyplot as plt
 from types import SimpleNamespace
 
 # HNA utils
-from HNA.modules.utils import get_condition_segments
-from HNA.modules.coupling import (
+from HNA.utils import get_condition_segments
+from HNA.coupling import (
     windowed_xcorr, band_coherence_windowed, band_coherence,
     plv_phase_sync, windowed_plv,
     wpli_phase_sync, windowed_wpli,
@@ -20,6 +19,7 @@ from HNA.modules.coupling import (
     plot_coupling_over_time, plot_coherence_results,
     plot_signal_alignment_validation,
 )
+from HNA.modalities.respiration import clean_respiration
 
 # ---------- repo paths ----------
 ROOT = Path(__file__).resolve().parents[2]
@@ -35,26 +35,8 @@ COH_FMIN, COH_FMAX = 0.05, 0.5
 PLV_BW = 0.12
 WPLI_WIN, WPLI_STEP = 120.0, 10.0
 
-# ---------- respiration cleaner (as notebook) ----------
-def _bandpass_sos(x, fs, lo=0.05, hi=1.0, order=4):
-    ny = 0.5*fs
-    sos = butter(order, [lo/ny, hi/ny], btype="band", output="sos")
-    return sosfiltfilt(sos, x)
-
-def clean_respiration(series: pd.Series, fs=FS) -> np.ndarray:
-    x = series.astype(float).to_numpy()
-    # 1) interpolate NaNs
-    s = pd.Series(x).interpolate(method="linear", limit_direction="both").to_numpy()
-    # 2) center
-    s = s - np.nanmean(s)
-    # 3) scale before filtering
-    mx = np.nanmax(np.abs(s)) or 1.0
-    s = s / mx
-    # 4) stable bandpass
-    s = _bandpass_sos(s, fs=fs, lo=0.05, hi=1.0, order=4)
-    # 5) z-score
-    mu, sd = np.mean(s), np.std(s) + 1e-12
-    return (s - mu) / sd
+# Respiration cleaning lives in HNA.modalities.respiration
+# (imported above as ``clean_respiration``).
 
 # ---------- segments ----------
 def pair_segments(indices_dict: dict) -> dict[str, tuple[int,int]]:

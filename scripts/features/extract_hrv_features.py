@@ -15,10 +15,12 @@ Usage:
 import argparse
 import numpy as np
 import pandas as pd
-import neurokit2 as nk
 from pathlib import Path
 import warnings
 warnings.filterwarnings('ignore')
+
+# HRV time-series extraction lives in modalities.ecg (HRV is derived from ECG).
+from HNA.modalities.ecg import compute_rolling_hrv_features
 
 # Paths
 ROOT = Path(__file__).resolve().parents[2]
@@ -28,90 +30,6 @@ DEFAULT_DATA_DIR = ROOT / "data"
 FS = 256.0
 WIN_SEC = 30.0      # Window size in seconds
 OVERLAP = 0.9       # Overlap ratio (0-1)
-
-
-def compute_rolling_hrv_features(ecg_clean, rpeaks, fs, win_sec, overlap):
-    """
-    Compute HRV features in rolling windows.
-    
-    Parameters
-    ----------
-    ecg_clean : np.ndarray
-        Cleaned ECG signal
-    rpeaks : np.ndarray
-        R-peak indices
-    fs : float
-        Sampling rate
-    win_sec : float
-        Window size in seconds
-    overlap : float
-        Overlap ratio (0-1)
-    
-    Returns
-    -------
-    features_df : pd.DataFrame
-        HRV features for each window
-    """
-    win_samples = int(win_sec * fs)
-    step_samples = int(win_samples * (1 - overlap))
-    
-    features_list = []
-    
-    for start_idx in range(0, len(ecg_clean) - win_samples + 1, step_samples):
-        end_idx = start_idx + win_samples
-        
-        # Get R-peaks within this window
-        window_rpeaks = rpeaks[(rpeaks >= start_idx) & (rpeaks < end_idx)]
-        
-        if len(window_rpeaks) < 5:
-            # Not enough peaks for reliable HRV analysis
-            continue
-        
-        # Adjust R-peak indices to be relative to window start
-        window_rpeaks_rel = window_rpeaks - start_idx
-        
-        try:
-            # Compute HRV features
-            hrv_features = nk.hrv(
-                window_rpeaks_rel,
-                sampling_rate=fs,
-                show=False
-            )
-            
-            # Add time information
-            time_start = start_idx / fs
-            time_end = end_idx / fs
-            
-            feature_dict = hrv_features.iloc[0].to_dict()
-            feature_dict['window_idx'] = len(features_list)
-            feature_dict['time_start'] = time_start
-            feature_dict['time_end'] = time_end
-            feature_dict['n_peaks'] = len(window_rpeaks)
-            
-            features_list.append(feature_dict)
-            
-        except Exception as e:
-            # If feature extraction fails, fill with NaN
-            if features_list:
-                # Use previous window's keys to maintain structure
-                nan_dict = {k: np.nan for k in features_list[-1].keys()}
-                nan_dict['window_idx'] = len(features_list)
-                nan_dict['time_start'] = start_idx / fs
-                nan_dict['time_end'] = end_idx / fs
-                nan_dict['n_peaks'] = len(window_rpeaks)
-                features_list.append(nan_dict)
-    
-    if not features_list:
-        return None
-    
-    features_df = pd.DataFrame(features_list)
-    
-    # Reorder columns to put metadata first
-    meta_cols = ['window_idx', 'time_start', 'time_end', 'n_peaks']
-    other_cols = [c for c in features_df.columns if c not in meta_cols]
-    features_df = features_df[meta_cols + other_cols]
-    
-    return features_df
 
 
 def process_subject(subject_id, data_dir=DEFAULT_DATA_DIR, win_sec=WIN_SEC, overlap=OVERLAP, overwrite=False):
