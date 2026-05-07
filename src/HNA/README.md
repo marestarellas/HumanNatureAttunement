@@ -16,6 +16,12 @@ respiration cleaning, …).
 HNA/
 ├── dsp.py             Generic signal-processing primitives (filters, envelope,
 │                      NaN handling, resample, z-score, butter SOS).
+├── io/                Optional pipeline-boundary helpers.
+│   └── trace.py         ``Trace`` dataclass: 1-D ndarray + fs + name +
+│                        modality + t0 + units, with ``resample_to`` /
+│                        ``crop`` / ``align_to`` / ``from_dataframe``.
+│                        Purely additive — coupling / features / stats /
+│                        viz still accept plain ``(ndarray, fs)``.
 ├── coupling/          Four-family coupling subpackage. The package's
 │   │                  ``__init__`` re-exports the full public surface so
 │   │                  ``from HNA.coupling import …`` works
