@@ -1,7 +1,7 @@
 """
 Statistical analysis of audio-EEG correlation results.
 
-This script analyzes the correlation results from compute_audio_eeg_correlation.py,
+This script analyzes the correlation results from compute_eeg_audio_correlation.py,
 comparing conditions using appropriate statistical models and generating visualizations.
 
 Supports both direct envelope correlation and time-lagged cross-correlation metrics.

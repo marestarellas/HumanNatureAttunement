@@ -28,7 +28,7 @@
 - Used **Hilbert transform** to get instantaneous amplitude
 - **Why**: Brain tracks amplitude modulations, not raw waveform
 
-**Script**: `compute_audio_eeg_correlation.py`
+**Script**: `compute_eeg_audio_correlation.py`
 
 ### **Step 2: Frequency Band Filtering**
 **What we did**: Filter BOTH audio envelope AND EEG to match specific frequency bands
@@ -171,7 +171,7 @@
 
 ```
 scripts/
-├── compute_audio_eeg_correlation.py    # Compute correlations
+├── compute_eeg_audio_correlation.py    # Compute correlations
 ├── run_correlation_stats.py            # Statistical analysis + topomaps
 └── plot_correlation_changes.py         # Intuitive visualizations
 
@@ -191,7 +191,7 @@ results/audio_eeg_correlation/
 
 ```powershell
 # Step 1: Compute correlations
-python scripts/compute_audio_eeg_correlation.py --subjects 2 3 5 6 --conditions VIZ AUD MULTI
+python scripts/compute_eeg_audio_correlation.py --subjects 2 3 5 6 --conditions VIZ AUD MULTI
 
 # Step 2: Run statistics
 python scripts/run_correlation_stats.py --metric correlation_direct_z --condition1 VIZ --condition2 AUD

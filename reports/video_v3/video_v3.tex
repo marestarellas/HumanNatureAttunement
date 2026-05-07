@@ -648,8 +648,8 @@ python -c "from HNA.modalities.video import quantify_video; \
            print(len(f.signals), 'signals at', f.fs, 'Hz')"
 
 # 3. Re-render the report figures
-python scripts/make_framework_figure.py   # framework.png
-python scripts/make_v3_figures.py         # v3_*.png
+python scripts/figures/video_v3/framework.py   # framework.png
+python scripts/figures/video_v3/all_figures.py         # v3_*.png
 
 # 4. Compile the report
 tectonic report/main_v3.tex

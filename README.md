@@ -42,17 +42,19 @@ HumanNatureAttunement/
 │
 ├── scripts/                ← thin CLI wrappers around the toolbox
 │   ├── preprocessing/      01_align_and_annotate, 02_compute_audio_envelopes,
-│   │                       03_merge_audio_into_tables, cut_audio_by_conditions, preprocess_ecg
+│   │                       03_merge_audio_into_tables, 04_cut_audio_by_conditions,
+│   │                       05_preprocess_ecg, _diagnose_triggers
 │   ├── features/           extract_eeg_features, extract_hrv_features
-│   ├── analysis/           run_resp_audio_coupling, run_hrv_audio_coupling,
-│   │                       run_*_multi_envelope, compute_audio_eeg_correlation*
-│   ├── stats/              run_correlation_stats, run_coherence_stats, run_mi_stats,
-│   │                       run_glm_analysis, …
-│   └── figures/            analysis_A_spectrum_overlay, analysis_B_surrogate_significance,
-│                           analysis_C_time_resolved_coupling, analysis_D_cross_modal_coupling,
-│                           analysis_E_phase_polar, analysis_F_*, analysis_RS1_vs_RS2_grid,
-│                           analysis_features_grid, analysis_nature_vs_rest,
-│                           methods_fig{1..7}_*, make_v3_figures, make_framework_figure
+│   ├── analysis/           compute_eeg_audio_{coherence,correlation,mutual_information},
+│   │                       compute_{hrv,resp}_audio_coupling, *_multi_envelope,
+│   │                       _check_*, _diagnose_*, _verify_hrv_alignment
+│   ├── stats/              run_{correlation,coherence,mi}_stats[_aggregated],
+│   │                       run_correlation_significance, run_glm_analysis,
+│   │                       run_gee_classification
+│   └── figures/
+│       ├── methods/        fig{1..7}_*  → reports/methods/figures/
+│       ├── preliminary/    A_*, B_*, …, F_*, plot_*, compare_*  → reports/preliminary_results/figures/
+│       └── video_v3/       framework, all_figures  → reports/video_v3/figures/
 │
 ├── config/
 │   └── subjects.json       per-subject metadata: condition order, audio sync,
@@ -166,17 +168,17 @@ scripts/preprocessing/02_compute_audio_envelopes.py
 scripts/preprocessing/03_merge_audio_into_tables.py
         │   -> data/processed/sub-XX/tables/merged_annotated_with_audio.csv
         ▼
-scripts/preprocessing/cut_audio_by_conditions.py + preprocess_ecg.py
+scripts/preprocessing/04_cut_audio_by_conditions.py + 05_preprocess_ecg.py
         │   per-condition WAVs, cleaned ECG + R-peaks
         ▼
 scripts/features/extract_eeg_features.py + extract_hrv_features.py
         │   PSD band-power + entropy + (FOOOF aperiodic)  via HNA.features
         │   HRV time series                               via HNA.modalities.ecg
         ▼
-scripts/analysis/{run_resp_audio_coupling, run_hrv_audio_coupling, ...}
+scripts/analysis/compute_*_coupling.py + compute_eeg_audio_*.py
         │   any of the 4 coupling families, per (subject, condition)
         ▼
-scripts/stats/* + scripts/figures/analysis_*
+scripts/stats/run_*.py  +  scripts/figures/{methods,preliminary,video_v3}/*
         │   LMMs, Friedman + Wilcoxon post-hoc, cluster permutation,
         │   paper-ready figures
         ▼
@@ -196,25 +198,25 @@ DATA="/path/to/data"
 PYTHONPATH=src
 
 # Stage 0 — preprocessing
-python scripts/preprocessing/01_align_and_annotate.py     --subjects 02 03 04 05 06 --data-dir "$DATA" --overwrite
-python scripts/preprocessing/02_compute_audio_envelopes.py --subjects 02 03 04 05 06 --processed-dir "$DATA/processed" --overwrite
-python scripts/preprocessing/03_merge_audio_into_tables.py --subjects 02 03 04 05 06 --savepath "$DATA/processed" --overwrite
-python scripts/preprocessing/cut_audio_by_conditions.py    --subjects 2 3 4 5 6 --data-dir "$DATA"
-python scripts/preprocessing/preprocess_ecg.py             --subjects 2 3 4 5 6 --data-dir "$DATA" --overwrite
+python scripts/preprocessing/01_align_and_annotate.py        --subjects 02 03 04 05 06 --data-dir "$DATA" --overwrite
+python scripts/preprocessing/02_compute_audio_envelopes.py   --subjects 02 03 04 05 06 --processed-dir "$DATA/processed" --overwrite
+python scripts/preprocessing/03_merge_audio_into_tables.py   --subjects 02 03 04 05 06 --savepath "$DATA/processed" --overwrite
+python scripts/preprocessing/04_cut_audio_by_conditions.py   --subjects 2 3 4 5 6 --data-dir "$DATA"
+python scripts/preprocessing/05_preprocess_ecg.py            --subjects 2 3 4 5 6 --data-dir "$DATA" --overwrite
 
 # Stage 1 — features
-python scripts/features/extract_eeg_features.py            --subjects 02 03 04 05 06 --data-dir "$DATA"
-python scripts/features/extract_hrv_features.py            --subjects 2 3 4 5 6 --data-dir "$DATA" --overwrite
+python scripts/features/extract_eeg_features.py              --subjects 02 03 04 05 06 --data-dir "$DATA"
+python scripts/features/extract_hrv_features.py              --subjects 2 3 4 5 6 --data-dir "$DATA" --overwrite
 
 # Stage 2 — coupling
-python scripts/analysis/run_resp_audio_coupling.py         --subjects 02 03 04 05 06 --data-dir "$DATA" --overwrite
-python scripts/analysis/run_hrv_audio_coupling.py          --subjects 02 03 04 05 06 --data-dir "$DATA" --overwrite
-python scripts/analysis/run_resp_audio_multi_envelope.py   --subjects 2 3 4 5 6 --data-dir "$DATA"
-python scripts/analysis/compute_audio_eeg_correlation.py   --subjects 2 3 4 5 6 --conditions VIZ AUD MULTI RS1 RS2 --data-dir "$DATA"
+python scripts/analysis/compute_resp_audio_coupling.py       --subjects 02 03 04 05 06 --data-dir "$DATA" --overwrite
+python scripts/analysis/compute_hrv_audio_coupling.py        --subjects 02 03 04 05 06 --data-dir "$DATA" --overwrite
+python scripts/analysis/compute_resp_audio_multi_envelope.py --subjects 2 3 4 5 6 --data-dir "$DATA"
+python scripts/analysis/compute_eeg_audio_correlation.py     --subjects 2 3 4 5 6 --conditions VIZ AUD MULTI RS1 RS2 --data-dir "$DATA"
 
-# Stage 3 — figures (see scripts/figures/ for the full list)
-python scripts/figures/analysis_A_spectrum_overlay.py      --subjects 2 3 4 5 6 --conditions VIZ AUD MULTI --data-dir "$DATA"
-python scripts/figures/analysis_nature_vs_rest.py          --subjects 2 3 4 5 6 --modalities resp hrv_meannn hrv_meannn_swell_0p1 --data-dir "$DATA"
+# Stage 3 — figures (see scripts/figures/{methods,preliminary,video_v3}/)
+python scripts/figures/preliminary/A_spectrum_overlay.py     --subjects 2 3 4 5 6 --conditions VIZ AUD MULTI --data-dir "$DATA"
+python scripts/figures/preliminary/nature_vs_rest.py         --subjects 2 3 4 5 6 --modalities resp hrv_meannn hrv_meannn_swell_0p1 --data-dir "$DATA"
 ```
 
 ## Methods-suite figures
@@ -225,10 +227,13 @@ pilot dataset. Useful as the methods section of a paper or as a
 teaching reference.
 
 ```bash
-PYTHONPATH=src python scripts/figures/methods_fig1_coupling_families.py
-PYTHONPATH=src python scripts/figures/methods_fig2_sensitivity.py
-PYTHONPATH=src python scripts/figures/methods_fig3_coupling_cases.py
-PYTHONPATH=src python scripts/figures/methods_fig4_cases_with_psd.py
+PYTHONPATH=src python scripts/figures/methods/fig1_coupling_families.py
+PYTHONPATH=src python scripts/figures/methods/fig2v2_sensitivity.py
+PYTHONPATH=src python scripts/figures/methods/fig3_coupling_cases.py
+PYTHONPATH=src python scripts/figures/methods/fig4_cases_with_psd.py
+PYTHONPATH=src python scripts/figures/methods/fig5_framework.py
+PYTHONPATH=src python scripts/figures/methods/fig6v2_worked_example.py
+PYTHONPATH=src python scripts/figures/methods/fig7_complexity_info_families.py
 ```
 
 | Figure | Purpose |

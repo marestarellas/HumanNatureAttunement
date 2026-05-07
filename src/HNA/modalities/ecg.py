@@ -254,7 +254,7 @@ def match_audio_to_hrv(
         Target HRV time grid (seconds).
     hrv_fs : float, optional
         Currently unused; kept for API parity with the original helper in
-        ``run_hrv_audio_coupling.py``.
+        ``compute_hrv_audio_coupling.py``.
 
     Returns
     -------

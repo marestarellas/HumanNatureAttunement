@@ -18,8 +18,8 @@ Per-subject pipeline driven by a single config file (`config/subjects.json`).
 | 1. Align EEG/physio + annotate conditions | `01_align_and_annotate.py` | `tables/merged_annotated.csv`, `tables/merged_annotated_cut.csv`, `audio/<base>_cut.wav` |
 | 2. Decompose audio envelope into 12 bands | `02_compute_audio_envelopes.py` | `audio/sea_envelopes_curves.csv` |
 | 3. Merge audio bands into the annotated table | `03_merge_audio_into_tables.py` | `tables/merged_annotated_with_audio.csv`  ← **canonical table** |
-| 4. Cut audio per condition | `cut_audio_by_conditions.py` | `audio/audio_<COND>.wav` |
-| 5. Clean ECG + extract R-peaks | `preprocess_ecg.py` | `ecg_processed/ecg_<COND>.csv`, `rpeaks_<COND>.npy` |
+| 4. Cut audio per condition | `04_cut_audio_by_conditions.py` | `audio/audio_<COND>.wav` |
+| 5. Clean ECG + extract R-peaks | `05_preprocess_ecg.py` | `ecg_processed/ecg_<COND>.csv`, `rpeaks_<COND>.npy` |
 
 The 12 audio envelope columns (per-condition log-normalized, common 256 Hz axis):
 - `env_broad` (60 Hz LP, broadband)
@@ -35,15 +35,15 @@ The 12 audio envelope columns (per-condition log-normalized, common 256 Hz axis)
 - `extract_hrv_features.py` — NeuroKit2 HRV in 30 s windows with 90 % overlap.
 
 ### Stage 2 — Coupling analyses (`scripts/analysis/`)
-- `run_resp_audio_coupling.py` — windowed xcorr / coherence / PLV / wPLI / MI
+- `compute_resp_audio_coupling.py` — windowed xcorr / coherence / PLV / wPLI / MI
   between cleaned respiration and the swell envelope.
-- `run_resp_audio_multi_envelope.py` — same five metrics swept across all
+- `compute_resp_audio_multi_envelope.py` — same five metrics swept across all
   12 audio envelope bands (5 × 12 fingerprint per subject × condition).
-- `run_hrv_audio_coupling.py` — same metrics for HRV (RMSSD/MeanNN/SDNN/HF/SampEn) ↔ audio.
-- `compute_audio_eeg_correlation.py` — band-by-band Pearson r (direct + lagged)
+- `compute_hrv_audio_coupling.py` — same metrics for HRV (RMSSD/MeanNN/SDNN/HF/SampEn) ↔ audio.
+- `compute_eeg_audio_correlation.py` — band-by-band Pearson r (direct + lagged)
   between EEG and audio envelope, per channel.
-- `compute_audio_eeg_coherence.py` — same but with spectral coherence.
-- `compute_audio_eeg_mutual_information.py` — same but with kNN-MI (kept available;
+- `compute_eeg_audio_coherence.py` — same but with spectral coherence.
+- `compute_eeg_audio_mutual_information.py` — same but with kNN-MI (kept available;
   not run on this pilot to save compute).
 
 ### Stage 3 — Stats (`scripts/stats/`)
@@ -257,7 +257,7 @@ inside `modalities/`.
   + README + guidelines
 
 ### Pending (in priority order)
-1. **EEG-audio MI**. The script `compute_audio_eeg_mutual_information.py`
+1. **EEG-audio MI**. The script `compute_eeg_audio_mutual_information.py`
    exists and is path-fixed; just deferred for compute time. Running it
    would let us produce MI versions of Fig 3 (topomaps) and Fig 4 (violins).
 2. **sub-07 trigger investigation.** Single-block CSV layout, just not
@@ -291,18 +291,18 @@ PYTHONPATH=src
 python scripts/preprocessing/01_align_and_annotate.py --subjects 02 03 04 05 06 --data-dir "$DATA" --overwrite
 python scripts/preprocessing/02_compute_audio_envelopes.py --subjects 02 03 04 05 06 --processed-dir "$DATA/processed" --overwrite
 python scripts/preprocessing/03_merge_audio_into_tables.py --subjects 02 03 04 05 06 --savepath "$DATA/processed" --overwrite
-python scripts/preprocessing/cut_audio_by_conditions.py --subjects 2 3 4 5 6 --data-dir "$DATA"
-python scripts/preprocessing/preprocess_ecg.py --subjects 2 3 4 5 6 --data-dir "$DATA" --overwrite
+python scripts/preprocessing/04_cut_audio_by_conditions.py --subjects 2 3 4 5 6 --data-dir "$DATA"
+python scripts/preprocessing/05_preprocess_ecg.py --subjects 2 3 4 5 6 --data-dir "$DATA" --overwrite
 
 # Stage 1 — features
 python scripts/features/extract_eeg_features.py --subjects 02 03 04 05 06 --data-dir "$DATA"
 python scripts/features/extract_hrv_features.py --subjects 2 3 4 5 6 --data-dir "$DATA" --overwrite
 
 # Stage 2 — coupling
-python scripts/analysis/run_resp_audio_coupling.py --subjects 02 03 04 05 06 --data-dir "$DATA" --overwrite
-python scripts/analysis/run_resp_audio_multi_envelope.py --subjects 2 3 4 5 6 --data-dir "$DATA"
-python scripts/analysis/run_hrv_audio_coupling.py --subjects 02 03 04 05 06 --data-dir "$DATA" --overwrite
-python scripts/analysis/compute_audio_eeg_correlation.py --subjects 2 3 4 5 6 --conditions VIZ AUD MULTI RS1 RS2 --data-dir "$DATA"
+python scripts/analysis/compute_resp_audio_coupling.py --subjects 02 03 04 05 06 --data-dir "$DATA" --overwrite
+python scripts/analysis/compute_resp_audio_multi_envelope.py --subjects 2 3 4 5 6 --data-dir "$DATA"
+python scripts/analysis/compute_hrv_audio_coupling.py --subjects 02 03 04 05 06 --data-dir "$DATA" --overwrite
+python scripts/analysis/compute_eeg_audio_correlation.py --subjects 2 3 4 5 6 --conditions VIZ AUD MULTI RS1 RS2 --data-dir "$DATA"
 
 # Stage 3 — stats
 for c1c2 in "VIZ AUD" "VIZ MULTI" "AUD MULTI"; do
@@ -310,14 +310,14 @@ for c1c2 in "VIZ AUD" "VIZ MULTI" "AUD MULTI"; do
 done
 
 # Stage 4 — figures
-python scripts/figures/analysis_A_spectrum_overlay.py --subjects 2 3 4 5 6 --conditions VIZ AUD MULTI --data-dir "$DATA"
-python scripts/figures/analysis_B_surrogate_significance.py --subjects 2 3 4 5 6 --conditions VIZ AUD MULTI --n-surrogates 200 --data-dir "$DATA"
+python scripts/figures/preliminary/A_spectrum_overlay.py --subjects 2 3 4 5 6 --conditions VIZ AUD MULTI --data-dir "$DATA"
+python scripts/figures/preliminary/B_surrogate_significance.py --subjects 2 3 4 5 6 --conditions VIZ AUD MULTI --n-surrogates 200 --data-dir "$DATA"
 for m in wpli plv coh xcorr; do
-  python scripts/figures/analysis_C_time_resolved_coupling.py --subjects 2 3 4 5 6 --conditions VIZ AUD MULTI --metric $m --data-dir "$DATA"
+  python scripts/figures/preliminary/C_time_resolved_coupling.py --subjects 2 3 4 5 6 --conditions VIZ AUD MULTI --metric $m --data-dir "$DATA"
 done
-python scripts/figures/analysis_D_cross_modal_coupling.py --subjects 2 3 4 5 6 --conditions VIZ AUD MULTI --data-dir "$DATA"
-python scripts/figures/analysis_E_phase_polar.py --subjects 2 3 4 5 6 --conditions VIZ AUD MULTI --data-dir "$DATA"
-python scripts/figures/analysis_F_multi_envelope_heatmap.py
+python scripts/figures/preliminary/D_cross_modal_coupling.py --subjects 2 3 4 5 6 --conditions VIZ AUD MULTI --data-dir "$DATA"
+python scripts/figures/preliminary/E_phase_polar.py --subjects 2 3 4 5 6 --conditions VIZ AUD MULTI --data-dir "$DATA"
+python scripts/figures/preliminary/F_multi_envelope_heatmap.py
 python scripts/figures/compare_coupling_conditions.py --subjects 2 3 4 5 6 --conditions VIZ AUD MULTI --data-dir "$DATA"
 python scripts/figures/plot_resting_state_features.py --subjects 2 3 4 5 6 --data-dir "$DATA"
 for c1c2 in "VIZ AUD" "VIZ MULTI" "AUD MULTI"; do
