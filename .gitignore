@@ -48,3 +48,20 @@ htmlcov/
 
 data/*
 !data/README.md
+
+# --- Claude session / worktree state -----------------------------------------
+.claude/
+
+# --- Generated stimuli & analysis artefacts (regeneratable) ------------------
+stimuli/
+results/
+
+# --- Remotion build/output (renderable from the source TS + assets) ----------
+remotion/node_modules/
+remotion/out/
+remotion/.cache/
+# Pre-rendered overlay videos & per-clip data caches
+remotion/public/*.mp4
+remotion/public/*.png
+remotion/src/data/signals.json
+remotion/src/data/summary.json

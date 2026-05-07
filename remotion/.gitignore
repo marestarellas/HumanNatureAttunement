@@ -1,0 +1,7 @@
+node_modules/
+out/
+.cache/
+public/*.mp4
+public/*.png
+src/data/signals.json
+src/data/summary.json

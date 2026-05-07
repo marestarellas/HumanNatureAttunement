@@ -1,0 +1,938 @@
+\documentclass[11pt,a4paper]{article}
+
+% --- packages -------------------------------------------------------------
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage[a4paper,margin=2.4cm,headheight=14pt]{geometry}
+\usepackage{amsmath,amssymb,mathtools}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage[scaled=0.85]{beramono}
+\usepackage{listings}
+\usepackage{titling}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage[round,authoryear]{natbib}
+\usepackage{hyperref}
+
+% --- colors / theming -----------------------------------------------------
+\definecolor{accent}{HTML}{0F5C8A}
+\definecolor{accent2}{HTML}{C2410C}
+\definecolor{rule}{HTML}{8895A1}
+\definecolor{codebg}{HTML}{F5F7FA}
+\definecolor{codekw}{HTML}{0F5C8A}
+\definecolor{codestr}{HTML}{067D17}
+\definecolor{codenum}{HTML}{C2410C}
+\definecolor{codecom}{HTML}{6E7781}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=accent,
+  urlcolor=accent,
+  citecolor=accent,
+  pdftitle={Quantifying sea-wave dynamics from video},
+  pdfauthor={HumanNatureAttunement},
+}
+
+% Section style
+\titleformat{\section}
+  {\Large\bfseries\color{accent}}
+  {\thesection}{0.6em}{}
+  [{\color{rule}\titlerule[0.6pt]}]
+\titleformat{\subsection}
+  {\large\bfseries\color{accent}}
+  {\thesubsection}{0.55em}{}
+
+% Listings (Python)
+\lstdefinelanguage{pythonish}{
+  morekeywords={def,class,return,if,else,elif,for,while,in,not,and,or,from,import,
+                as,with,True,False,None,lambda,try,except,finally,pass,raise,
+                yield,is,break,continue},
+  morecomment=[l]\#,
+  morestring=[b]",
+  morestring=[b]'
+}
+\lstset{
+  language=pythonish,
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{codekw}\bfseries,
+  stringstyle=\color{codestr},
+  commentstyle=\color{codecom}\itshape,
+  numberstyle=\tiny\color{codecom},
+  numbers=left, numbersep=8pt,
+  backgroundcolor=\color{codebg},
+  frame=single, framesep=4pt, framerule=0pt, rulecolor=\color{codebg},
+  breaklines=true, breakatwhitespace=true,
+  columns=fullflexible, keepspaces=true,
+  xleftmargin=10pt, xrightmargin=4pt,
+  aboveskip=8pt, belowskip=8pt,
+}
+
+% Header / footer
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\color{rule}HNA -- Video module}
+\fancyhead[R]{\small\color{rule}\thepage}
+\renewcommand{\headrulewidth}{0pt}
+\fancypagestyle{plain}{\fancyhf{}\fancyfoot[R]{\small\color{rule}\thepage}}
+
+% Title block
+\setlength{\droptitle}{-1.4cm}
+
+\title{\vspace{-1cm}\Huge\bfseries Quantifying oscillation \& complexity \\[2pt] of sea waves from video \\[6pt]
+  \large\mdseries A method reference for the \texttt{HNA.modules.video} module}
+\author{HumanNatureAttunement project \\[-2pt]
+  \small Antoine Bellemare \& Mar Estarellas}
+\date{\small \today}
+
+% Custom macros
+\newcommand{\code}[1]{\texttt{\small #1}}
+\newcommand{\E}{\mathbb{E}}
+
+\begin{document}
+
+\maketitle
+\thispagestyle{plain}
+
+\begin{abstract}\noindent
+The \code{HNA.modules.video} module turns a video clip into a battery of 1-D
+signals -- sampled at the frame rate -- that quantify both the
+\emph{oscillation} (mean luminance, optical-flow magnitude, modal coefficients,
+timestack period) and the \emph{complexity} (multiple entropies, fractal
+dimensions, Hjorth parameters, DFA exponent, $1/f$ slope) of natural visual
+phenomena such as sea waves. These signals are designed as drop-in inputs to
+the existing \code{HNA.modules.coupling} pipeline, which already estimates
+audio--EEG coupling for the project; the same statistics (windowed
+cross-correlation, magnitude-squared coherence, phase-locking value, weighted
+phase-lag index, mutual information) therefore extend symmetrically to the
+visual modality and to coupling with HRV / respiration / EMG. This report
+documents every method, gives the math, the chosen hyperparameters, and a
+worked example on three test clips.
+\end{abstract}
+
+\vspace{4pt}
+\hrule height 0.6pt
+\vspace{6pt}
+{\small\color{rule}
+This document is generated from the source at \code{report/main.tex} and
+compiles with \code{tectonic}. Method sources live under
+\code{src/HNA/modules/video.py}; the corresponding animation is under
+\code{remotion/}.}
+\vspace{6pt}
+\hrule height 0.6pt
+
+\tableofcontents
+\vspace{6pt}
+
+% =========================================================================
+\section{Motivation \& design}
+% =========================================================================
+
+The HNA project studies the neurophysiology of human attunement to nature
+through rhythmic entrainment. The audio-side pipeline is established: the
+acoustic envelope of a sea-wave recording is correlated with EEG band-limited
+power, and the coupling is significantly stronger when attention is focused
+on the audio than when it is divided with a visual stimulus. The video module
+extends this question symmetrically: \emph{does the brain (or heart, or
+muscle) track the visual envelope of the same stimulus?} For that to be a
+well-posed question, every video signal must satisfy three constraints:
+
+\begin{enumerate}[leftmargin=1.5em,itemsep=0.4em]
+  \item \textbf{One-dimensional, frame-rate sampled.} A 1-D signal at
+        $f_s = \mathrm{fps}$ aligns directly with the existing tools without
+        bespoke adapters. At 24--30~Hz the Nyquist limit comfortably covers
+        the autonomic band ($0.04$--$0.4$~Hz, RSA / respiration / Mayer
+        waves) and EEG bands up to $\sim$12~Hz; for higher EEG bands one
+        either accelerates frame rate or uses phase-based magnification.
+  \item \textbf{Physically interpretable.} A wave that is breaking should
+        increase \emph{some} measure that the audience can name. We avoid
+        opaque deep features in this layer.
+  \item \textbf{Cheap.} Several minutes of HD footage must process in
+        seconds on CPU. All extractors operate on a downscaled grayscale
+        copy (default 192~px on the long axis).
+\end{enumerate}
+
+The module organises six families of measures (Sec.~\ref{sec:methods}) and
+their nonlinear-dynamics summaries (Sec.~\ref{sec:complexity}). The same
+$\sim$15 complexity measures are applied to every 1-D signal so the
+cross-modal coupling statistics on the physiology side -- already the same
+toolbox -- have direct counterparts on the video side.
+
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=\linewidth]{figures/overlays_montage.png}
+  \caption{Per-frame visualisations of five families of methods, taken from
+  the same source frame (\texttt{video\_examples/waves.mp4}).
+  Left to right: raw frame; absolute frame difference; Canny edges;
+  Farneback optical flow drawn as discrete arrows (hue $=$ direction,
+  length $=$ speed); per-patch Shannon entropy as a magma-colormap heat
+  overlay.}
+  \label{fig:overlays}
+\end{figure}
+
+% =========================================================================
+\section{Module overview}
+% =========================================================================
+
+The public API mirrors the rest of \code{HNA.modules}: every extractor is
+pure-numpy / OpenCV / SciPy, with optional dependencies (\code{antropy},
+\code{neurokit2}, \code{pydmd}) gracefully degrading to NaNs.
+
+\begin{lstlisting}
+from HNA.modules.video import quantify_video
+
+feats = quantify_video("video_examples/waves.mp4",
+                       target_long=192,
+                       include_windowed_complexity=True)
+
+# feats.signals          : Dict[str, np.ndarray]  (1-D, fs = fps)
+# feats.complexity[key]  : Dict[str, float]       (15 measures)
+# feats.timestack        : TimestackResult
+# feats.modal            : ModalResult
+# feats.meta             : VideoMeta
+\end{lstlisting}
+
+The high-level pipeline calls, in order, \code{extract\_global\_signals} $\to$
+\code{extract\_optical\_flow\_signals} $\to$ \code{extract\_spatial\_complexity}
+$\to$ \code{extract\_timestack} $\to$ \code{extract\_modal} $\to$
+\code{complexity\_summary}, with an optional \code{windowed\_complexity}
+pass on a chosen subset of signals. Every produced 1-D signal is a valid
+input to the coupling tools (see Section~\ref{sec:coupling}).
+
+% =========================================================================
+\section{Methods}\label{sec:methods}
+% =========================================================================
+
+Throughout, $I_t(x,y)$ denotes the grayscale frame at time $t \in
+\{1,\dots,N\}$ (sampled at $f_s = \mathrm{fps}/\mathrm{stride}$~Hz),
+$g_t(x,y)$ its $192$-px-on-the-long-axis downscaled copy, and
+$\mathbf{v}_t(x,y) = (u_t(x,y),v_t(x,y))$ the dense optical-flow field
+between $g_{t-1}$ and $g_t$.
+
+% -------------------------------------------------------------------------
+\subsection{Global temporal envelope}
+% -------------------------------------------------------------------------
+
+Each frame is collapsed to a scalar by spatial averaging or by histogram
+statistics. These signals are the visual analogue of the Hilbert-derived
+acoustic envelope already used in the audio pipeline.
+
+\paragraph{Per-frame scalars.}
+\begin{align}
+  \mathrm{lum}_t      &= \tfrac{1}{HW}\textstyle\sum_{x,y} g_t(x,y), \\
+  \mathrm{R}_t,\mathrm{G}_t,\mathrm{B}_t &= \text{channel means}, \\
+  \sigma_t            &= \mathrm{std}_{x,y}\,g_t(x,y), \\
+  H_t^{\text{spat}}   &= -\textstyle\sum_b p_t^{(b)} \log_2 p_t^{(b)}, \\
+  d_t                 &= \tfrac{1}{HW}\textstyle\sum_{x,y} \bigl|g_t(x,y) - g_{t-1}(x,y)\bigr|,
+\end{align}
+
+where $p_t^{(b)}$ is the normalized histogram of $g_t$ in $B=64$ bins. The
+last quantity, the \emph{frame-difference} $d_t$, is a frame-rate motion
+energy proxy that already captures the swell rhythm in many recordings.
+$d_1 = 0$ by convention.
+
+\paragraph{Why blue.} The per-channel means are reported separately because
+the blue channel of sea-wave footage is unusually clean: it varies primarily
+with sky / water reflectance and tracks the swell envelope nearly as well as
+optical-flow magnitude, at a fraction of the cost.
+
+% -------------------------------------------------------------------------
+\subsection{Optical flow (Farneback)}
+% -------------------------------------------------------------------------
+
+Dense flow is estimated by the polynomial-expansion algorithm of
+\citet{farneback2003}, implemented in OpenCV as
+\code{cv2.calcOpticalFlowFarneback}. Hyperparameters (Section~\ref{sec:hp})
+are tuned for textured water: $\code{winsize}=21,\
+\code{levels}=4,\ \code{iterations}=5,\ \code{poly\_n}=7,\
+\code{poly\_sigma}=1.5$. From the field $\mathbf{v}_t$ we derive
+
+\begin{align}
+  \mathrm{mag}_t      &= \tfrac{1}{HW}\textstyle\sum_{x,y} \|\mathbf{v}_t(x,y)\|, \\
+  \mathrm{mag}_t^{p95}&= \mathrm{percentile}_{95}\, \|\mathbf{v}_t\|, \\
+  \mathrm{curl}_t     &= \tfrac{1}{HW}\textstyle\sum_{x,y} \bigl|\partial_x v_t - \partial_y u_t\bigr|, \\
+  \mathrm{div}_t      &= \tfrac{1}{HW}\textstyle\sum_{x,y} \bigl(\partial_x u_t + \partial_y v_t\bigr), \\
+  \bar u_t, \bar v_t  &= \text{spatial means of } u, v, \\
+  H^{\text{dir}}_t    &= -\textstyle\sum_k q_t^{(k)} \log_2 q_t^{(k)},
+\end{align}
+
+with $q_t^{(k)}$ the histogram of flow directions
+$\arctan_2(v_t,u_t)$ over pixels with $\|\mathbf{v}_t\| > 0.1$, in $K=16$
+bins. The mean magnitude tracks bulk wave motion; mean $|\mathrm{curl}|$
+isolates rotational and turbulent content (foam break-up); the
+divergence is small in incompressible-flow regimes (water surface) but
+spikes near surf-zone breaking. Direction entropy quantifies how
+isotropic the motion field is at frame $t$.
+
+% -------------------------------------------------------------------------
+\subsection{Multi-scale optical flow}\label{sec:flow-multiscale}
+% -------------------------------------------------------------------------
+
+\code{extract\_optical\_flow\_multiscale} returns the same family of
+descriptors at multiple granularities. Two granularity dimensions are
+exposed, both standard generalisations of pyramidal flow
+\citep{bouguet2001,zach2007}:
+
+\paragraph{Temporal stride.} For each $\Delta t$ in
+\code{temporal\_strides} (default $\{1, 3, 9\}$ frames) we compute the
+flow between frames $t$ and $t-\Delta t$. $\Delta t = 1$ captures
+ripple- and foam-scale motion; $\Delta t = 9$ at $24$~fps probes
+$\approx 0.4$~s motion -- close to a quarter swell period. Because each
+$\Delta t$ samples a different temporal band of the underlying motion
+field, these are essentially three independent flow channels rather
+than redundant copies of the same signal.
+
+\paragraph{Spatial decomposition.} After computing $(u, v)$ at a given
+$\Delta t$, the field is split into a Gaussian low-pass component
+(default $\sigma = 6$~px) and the residual:
+\begin{equation}
+  \mathbf{v}_{\text{large}} = G_\sigma \ast \mathbf{v},\qquad
+  \mathbf{v}_{\text{small}} = \mathbf{v} - \mathbf{v}_{\text{large}}.
+\end{equation}
+The large-scale component carries swell-direction/speed; the small-scale
+residual carries turbulent motion. The same four scalars
+(\code{mag\_mean}, \code{curl\_abs\_mean}, \code{div\_mean},
+\code{dir\_entropy}) are then computed on each of \texttt{full},
+\texttt{large}, \texttt{small} fields.
+
+\paragraph{Naming.} Output keys follow the schema
+\code{flow\_dt\{N\}\_\{full|large|small\}\_\{stat\}}, e.g.
+\code{flow\_dt9\_large\_mag\_mean}. With the default settings the
+function emits $|\Delta t| \times 3 \times 4 = 36$ frame-rate signals,
+each individually coupling-ready against EEG / HRV / EMG.
+
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=\linewidth]{figures/multiscale_flow.png}
+  \caption{Multi-scale optical flow on \texttt{waves.mp4}. Top:
+  temporal-stride decomposition of the full flow field -- mean
+  $|\mathbf{v}|$ scales roughly linearly with $\Delta t$ (the longer-
+  baseline flow integrates more swell motion). Bottom: spatial low-pass
+  vs.\ residual split at $\Delta t = 3$. The large-scale component
+  carries $\sim 80\%$ of the total motion energy (swell); the small-
+  scale residual is the remaining turbulent content.}
+  \label{fig:multiscale-flow}
+\end{figure}
+
+% -------------------------------------------------------------------------
+\subsection{Per-frame spatial complexity}\label{sec:spatial}
+% -------------------------------------------------------------------------
+
+Five complementary descriptors of \emph{within-frame} structure:
+
+\paragraph{Edge density.} Apply a Canny edge detector
+\citep{canny1986} with thresholds $(35, 110)$ -- tuned downward from
+OpenCV defaults to capture soft foam contours that 60/150 misses.
+Edge density is the fraction of pixels above threshold:
+$\rho_t = \frac{1}{HW}\sum_{x,y} \mathbf{1}[\mathrm{edge}_t(x,y)]$.
+
+\paragraph{Radial 2D-FFT slope.} The radial average of the 2-D power
+spectrum of $g_t$ typically follows a power law
+$P(k) \propto k^{-\alpha}$ over a mid-frequency band. We fit
+\begin{equation}
+  \log P(k) = -\alpha \log k + c
+\end{equation}
+on $0.05\, k_{\max} \le k \le 0.5\, k_{\max}$ where
+$k_{\max} = \min(H, W)/2$. Sea / foam textures give
+$\alpha \in [1.5, 3]$. This is conceptually parallel to the EEG
+\emph{aperiodic} ($1/f$) exponent in the spectral domain.
+
+\paragraph{Box-counting fractal dimension (two binarisations).} On a
+binary mask $B$, count non-empty boxes
+$N(\varepsilon)$ at sizes $\varepsilon \in \{2,3,4,6,8,12,16\}$. Fit
+\begin{equation}
+  \log N(\varepsilon) = D \, \log(1/\varepsilon) + c,
+\end{equation}
+the slope $D$ is the box-counting fractal dimension. We apply this to
+two complementary binarisations of each frame:
+\code{fractal\_dim\_edges} on the Canny edge map (sharp foam contours)
+and \code{fractal\_dim\_grad} on the binarised gradient-magnitude image
+\textbar $\nabla g_t$ \textbar $\,>\,\!\mathrm{percentile}_{60}$, which captures the graded
+turbulent structure that the binary edge map throws away. For natural
+foam, $D \in (1.5, 2.0)$ depending on the binarisation.
+
+\paragraph{Lacunarity.} Box-counting answers \emph{how rough}; lacunarity
+\citep{plotnick1993,allgood1991} answers \emph{how clumpy / heterogeneous
+that roughness is at multiple scales} -- two textures with the same $D$
+can have very different lacunarity. For each box size $\varepsilon$,
+\begin{equation}
+  \Lambda(\varepsilon)
+  \;=\; 1 + \frac{\mathrm{Var}\,N(\varepsilon)}{(\E\,N(\varepsilon))^2},
+\end{equation}
+and we report $\log\overline{\Lambda}$ on the same two binarisations
+(\code{lacunarity\_edges}, \code{lacunarity\_grad}).
+Fig.~\ref{fig:lacunarity} shows that $D$ alone does not separate the
+three example clips, while lacunarity on the gradient image clearly
+splits them.
+
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=\linewidth]{figures/lacunarity.png}
+  \caption{Per-frame fractality + lacunarity on the binarised gradient
+  image, across the three example clips. Box-counting $D$ (top) is
+  nearly identical for the three sea states; lacunarity (bottom)
+  separates them strongly -- which is the whole reason it complements
+  fractal dimension.}
+  \label{fig:lacunarity}
+\end{figure}
+
+\paragraph{Patch Shannon entropy.} Tile each frame into
+$24\times 24$ blocks; compute the Shannon entropy of the intensity
+histogram inside every block; average. This produces a per-frame scalar
+\emph{and} a low-resolution map (Fig.~\ref{fig:overlays}, rightmost
+panel) that is rendered as the \texttt{patch\_heatmap.mp4} overlay.
+
+\paragraph{GLCM contrast / homogeneity.} Quantize $g_t$ to $L=16$ levels;
+build the gray-level co-occurrence matrix $G_d$ at four offsets
+$d \in \{(0,1),(1,0),(1,1),(1,-1)\}$; report
+$\mathrm{contrast} = \sum_{ij}(i-j)^2 G_d(i,j)$ and
+$\mathrm{homogeneity} = \sum_{ij} G_d(i,j) / (1 + (i-j)^2)$
+\citep{haralick1973}. Implemented from scratch (no \code{scikit-image}
+dependency).
+
+% -------------------------------------------------------------------------
+\subsection{Per-frame 2D Fourier descriptors}\label{sec:spatial-fft}
+% -------------------------------------------------------------------------
+
+The radial PSD slope (Sec.~\ref{sec:spatial}) collapses the 2-D spectrum to
+a single number; \code{extract\_spatial\_fft\_signals} adds three richer
+per-frame scalars that exploit the full 2-D spectrum.
+
+Let $G_t(k_x,k_y) = \mathcal{F}_{2D}\{g_t - \bar g_t\}$ and
+$P_t(k_x,k_y) = |G_t|^2$. With $r = \sqrt{k_x^2+k_y^2}$ and ring mask
+$\mathcal{R} = \{2 \le r \le 0.95\, r_{\max}\}$:
+
+\begin{align}
+  k^{\text{peak}}_t      &= \frac{r(\arg\max_{\mathcal{R}} P_t)}{r_{\max}}, \\
+  A_t                    &= \log \frac{\sum_{\mathcal{R} \cap \angle\approx\pm\pi/2} P_t}
+                                       {\sum_{\mathcal{R} \cap \angle\approx 0,\pi} P_t}, \\
+  \theta_t               &= \tfrac{1}{2}\arctan_2\!\Bigl(\sum_{\mathcal{R}} \sin(2\angle)\,P_t,\;\sum_{\mathcal{R}} \cos(2\angle)\,P_t\Bigr),
+\end{align}
+
+where $\angle$ is the polar angle $\arctan_2(k_y,k_x)$. The peak
+wavenumber $k^{\text{peak}}$ is the normalized dominant spatial frequency
+of foam / ripple texture; the \emph{anisotropy} $A_t$ is positive when
+horizontal stripes dominate (Fourier power on the $k_y$ axis) and
+negative when vertical stripes dominate; $\theta_t \in [0,\pi)$ is the
+weighted-mean orientation. On \texttt{waves.mp4} we measure
+$A_t \approx 2.2$ on average -- consistent with the visible horizontal
+swell crests -- and $\theta_t \approx \pi/2$, confirming that interpretation
+(Fig.~\ref{fig:spatial-fft-signals}).
+
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=\linewidth]{figures/spatial_fft_signals.png}
+  \caption{Per-frame 2-D-FFT descriptors across the three example clips.
+  All natural-wave footage has positive anisotropy (horizontal swell crests
+  dominate); the synthetic clip has the smallest peak wavenumber because
+  it was generated with very low spatial frequency content.}
+  \label{fig:spatial-fft-signals}
+\end{figure}
+
+% -------------------------------------------------------------------------
+\subsection{Per-pixel temporal spectrum}\label{sec:pixel-spectrum}
+% -------------------------------------------------------------------------
+
+So far every method either pooled in \emph{space} (returning a 1-D signal
+in $t$) or in \emph{time} (returning a 2-D image at a single $t$). The
+function \code{extract\_pixel\_spectrum} addresses the obvious missing
+direction: it computes, for every pixel $(x,y)$ of a downscaled grayscale
+copy, the FFT of luminance over time, and reports the resulting (frequency
+$\times$ space) information as a small set of 2-D maps and global
+scalars.
+
+\paragraph{Procedure.} With a $T \times h \times w$ stack
+$X(t,y,x) = g_t(x,y)$:
+\begin{enumerate}[leftmargin=1.5em,itemsep=0.2em]
+  \item Per-pixel linear detrend along $t$.
+  \item Hann taper $w_t$, then real-input FFT along $t$:
+        $F(f,y,x) = \mathrm{rfft}_t\,[\,w_t\,X(t,y,x)\,]$.
+  \item Power $\hat P(f,y,x) = |F(f,y,x)|^2$, ignoring DC.
+\end{enumerate}
+
+\paragraph{Per-pixel maps.} Each is a 2-D image of size $(h,w)$:
+\begin{align}
+  f^{\text{peak}}(y,x)  &= \arg\max_{f>0} \hat P(f,y,x), \\
+  P^{\text{peak}}(y,x)  &= \max_{f>0} \hat P(f,y,x), \\
+  H^{\text{spec}}(y,x)  &= -\sum_{f>0} \tilde P(f,y,x) \log_2 \tilde P(f,y,x), \\
+  P^{\text{band}}_b(y,x)&= \sum_{f \in [\,f_{\min}^b, f_{\max}^b)} \hat P(f,y,x),
+\end{align}
+where $\tilde P$ is normalized over $f$. We report band powers in three
+default bands matched to the autonomic / respiratory range:
+$b \in \{(0.05,0.25), (0.25,0.5), (0.5,2.0)\}$~Hz.
+
+\paragraph{1-D aggregates.} Two scalars summarise the spectro-spatial
+structure of the clip:
+\begin{align}
+  \mathrm{sync} &= 1 - \frac{H(\bar P / \sum \bar P)}{\log_2 N_f},
+  & \bar P(f) &= \tfrac{1}{hw}\textstyle\sum_{x,y} \hat P(f,y,x), \\
+  \mathrm{coherence} &= 1 - \frac{\mathrm{std}(f^{\text{peak}})}
+                                  {f_{\max}-f_{\min}}.
+\end{align}
+\code{sync} is large when the mean PSD across pixels is concentrated at
+one frequency (a single-period swell); \code{coherence} is large when
+\emph{every} pixel votes for the same dominant frequency (a spatially
+locked oscillator).
+
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=\linewidth]{figures/pixel_spectrum.png}
+  \caption{Per-pixel temporal FFT on \texttt{waves.mp4}. The peak-frequency
+  map (left) shows that most of the frame oscillates at $\sim 0.25$~Hz;
+  the low and mid-band power maps show \emph{where} the energy lives in
+  each band (foreground swell vs.\ rear-frame ripple); the spectral-entropy
+  map highlights pixels with broadband (high-entropy) vs.\ narrow-band (low
+  entropy) temporal behaviour. Right panel: average power across pixels --
+  one curve summarising the whole clip's temporal structure.}
+  \label{fig:pixel-spectrum}
+\end{figure}
+
+\paragraph{Why this matters.} Per-pixel maps add a \emph{spatial}
+counterpart to the timestack and modal analyses: instead of one column or
+a few global modes, every pixel reports its own dominant period and band
+weights. Concretely, a pixel inside the breaking-wave zone will sit in the
+mid-band map; a pixel in the calm sky region will sit in the low-band
+map. These maps can be averaged over masks to derive region-of-interest
+1-D signals (e.g.\ ``mean low-band power inside the surf zone'') that
+plug directly into \code{HNA.modules.coupling}. They are also a clean way
+to visualise the same underlying oscillation that the modal decomposition
+recovers (Sec.~\ref{sec:modal-section}).
+
+\paragraph{Cost.} A clip of $T$ frames at $h \times w$ pixels needs
+$O(T h w \log T)$ time and $O(T h w)$ memory for the stack. At
+\code{target\_long=96} and 200 frames, the stack is
+$200 \times 72 \times 96 \times 4\text{B} \approx 5.5$~MB and the FFT runs
+in $<\!0.5$~s on CPU; this is the reason the function is opt-in
+(\code{include\_pixel\_spectrum=True}) but cheap when used.
+
+% -------------------------------------------------------------------------
+\subsection{Spatio-temporal modal decomposition (DMD)}\label{sec:modal-section}
+% -------------------------------------------------------------------------
+
+We assemble the (pixels $\times$ time) data matrix
+$X \in \mathbb{R}^{P \times N}$ ($P = H'W'$ pixels of the
+$96$-on-the-long-axis downscaled clip, $N$ frames; per-pixel temporal
+mean removed) and compute exact Dynamic Mode Decomposition
+\citep{schmid2010,kutz2016} via the \code{pydmd} package
+\citep{demo2018pydmd}, the default and recommended path.
+
+\paragraph{Why DMD instead of POD/SVD.} The naive SVD/POD path
+$X = U \Sigma V^\top$ \emph{pairs} the dominant traveling wave into two
+real modes that share the same temporal frequency: a sine--cosine pair
+of the fundamental, plus a second pair at the first harmonic. So a
+single-component sea at $f_p = 0.125$~Hz produces four POD modes at
+$\{0.125, 0.125, 0.250, 0.250\}$~Hz -- visually similar and
+spectrally indistinguishable. DMD avoids this by working with a
+\emph{complex} linear operator $A$ such that
+$X_{2:N} = A X_{1:N-1}$. Its eigendecomposition
+\begin{equation}
+  A \phi_k = \lambda_k \phi_k,\quad
+  \lambda_k = e^{(\sigma_k + i\omega_k)\Delta t},
+\end{equation}
+yields one complex eigenvalue per physical mode, so each mode has a
+single frequency $f_k = |\omega_k|/2\pi$ and a single growth rate
+$\sigma_k$. Each conjugate pair $\{\lambda, \bar\lambda\}$ is
+de-duplicated post-hoc (keep the higher-energy representative), and
+modes are ranked by $\|\phi_k\| \cdot \overline{|b_k(t)|}$.
+
+\paragraph{What this changes empirically.} On \texttt{waves.mp4} the new
+top-4 DMD modes land at $\{0.072, 0.192, 0.313, 0.449\}$~Hz instead of
+the SVD pairing $\{0.125, 0.125, 0.250, 0.250\}$~Hz -- a clean
+fundamental + harmonics decomposition with each level visually distinct
+in the spatial mode (Fig.~\ref{fig:modal-modes}). Cross-clip frequencies
+spread across the autonomic and EEG-low bands rather than collapsing
+(Fig.~\ref{fig:modal-freqs}).
+
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=\linewidth]{figures/modal_modes.png}
+  \caption{Top-4 DMD spatial modes ($|\phi_k|$) of \texttt{waves.mp4}.
+  Mode~1 captures the dominant swell pattern; subsequent modes contain
+  progressively finer foam structure. Each mode now corresponds to a
+  \emph{distinct} oscillation frequency rather than the sin/cos pair an
+  SVD would produce.}
+  \label{fig:modal-modes}
+\end{figure}
+
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=\linewidth]{figures/modal_freqs.png}
+  \caption{Dominant DMD mode frequencies (top-4 by energy) for the
+  three example clips. With DMD the four modes span a range of
+  frequencies for every clip; the SVD baseline (not shown) collapses
+  modes 1--4 into one or two values.}
+  \label{fig:modal-freqs}
+\end{figure}
+
+The temporal coefficient of each mode -- the real part of $b_k(t) =
+b_k \lambda_k^t$ -- is a 1-D signal, added to \code{feats.signals}
+under keys \code{modal\_1}, \code{modal\_2}, \dots. The
+SVD/POD-with-Welch path is preserved as
+\code{extract\_modal(prefer="svd")} for diagnostic comparison.
+
+% -------------------------------------------------------------------------
+\subsection{Timestack analysis}
+% -------------------------------------------------------------------------
+
+Borrowed from coastal remote sensing (Argus stations,
+\citealp{holman2007}), the timestack samples a single pixel column
+$x_0$ at every frame. The resulting $N \times H$ image $T(t,y)$ has
+time on one axis and vertical pixel position on the other; its row mean
+$s_t = \tfrac{1}{H}\sum_y T(t,y)$ is a 1-D signal whose dominant Welch
+PSD peak is the wave-period estimate:
+\begin{equation}
+  \hat f_{\text{wave}} = \arg\max_{f \in [f_{\min}, f_{\max}]} \, P_{ss}(f).
+\end{equation}
+We use $f_{\min} = 0.05$~Hz, $f_{\max} = 2$~Hz, $x_0$ at the midline
+($\mathrm{column\_frac} = 0.5$). On the natural-wave clips we recover a
+peak at $0.125$~Hz (period $\sim$8~s); on the synthetic clip,
+$0.25$~Hz (period 4~s) -- both in agreement with the SVD modal
+analysis.
+
+% -------------------------------------------------------------------------
+\subsection{Nonlinear-dynamics complexity summary}\label{sec:complexity}
+% -------------------------------------------------------------------------
+
+Every 1-D signal produced above is summarised by 15 nonlinear-dynamics
+measures (Table~\ref{tab:complexity-measures}). They split into four
+families: \emph{entropies} (5), \emph{fractal dimensions} (3),
+\emph{Hjorth} (2), and \emph{long-range / aperiodic} (5). The split
+matters because each family is sensitive to a different facet of
+``complexity'' -- a signal can be high in one and low in another. Reusing
+\code{antropy} \citep{antropy} and \code{neurokit2} \citep{neurokit2}
+ensures these are exactly the same implementations that the EEG/HRV
+side already uses.
+
+\begin{table}[ht]
+\centering
+\renewcommand{\arraystretch}{1.18}
+\setlength{\tabcolsep}{6pt}
+\begin{tabularx}{\linewidth}{l l X}
+\toprule
+\textbf{Family} & \textbf{Measure} & \textbf{Brief intuition} \\
+\midrule
+Entropy & \code{perm\_entropy}     & Bandt--Pompe ordinal-pattern entropy
+                                     ($m=3$, $\tau=1$); robust to noise. \citep{bandt2002} \\
+        & \code{sample\_entropy}   & Pincus / Richman recurrence entropy
+                                     for short series. \citep{richman2000} \\
+        & \code{approx\_entropy}   & Approximate entropy (Pincus 1991);
+                                     biased relative to SampEn but historical. \\
+        & \code{spectral\_entropy} & Shannon entropy of normalized PSD;
+                                     low for narrow-band oscillators. \\
+        & \code{svd\_entropy}      & Shannon entropy of the singular values
+                                     of the embedded trajectory matrix. \\
+\midrule
+Fractal & \code{higuchi\_fd}       & Higuchi 1988; tracks roughness of
+                                     the 1-D trace. \\
+        & \code{katz\_fd}          & Katz 1988; sensitive to outliers but cheap. \\
+        & \code{petrosian\_fd}     & Petrosian 1995; fastest, binary-derivative
+                                     based. \\
+\midrule
+Hjorth  & \code{hjorth\_mobility}  & $\sigma_{\dot x}/\sigma_x$, mean
+                                     frequency proxy. \\
+        & \code{hjorth\_complexity}& $(\sigma_{\ddot x}/\sigma_{\dot x})/\text{mobility}$,
+                                     bandwidth proxy. \citep{hjorth1970} \\
+\midrule
+Aperiodic
+        & \code{dfa\_alpha}        & Detrended fluctuation analysis
+                                     scaling exponent. \citep{peng1995} \\
+        & \code{hurst}             & Hurst exponent; long-range memory. \\
+        & \code{lz\_complexity}    & Lempel--Ziv compression ratio; algorithmic
+                                     irregularity. \citep{lempel1976} \\
+        & \code{mse\_area}         & Multiscale entropy area-under-curve
+                                     across coarse-grained scales. \citep{costa2002} \\
+        & \code{psd\_slope}        & Slope of $\log P(f)$ vs.\ $\log f$;
+                                     the $1/f$ aperiodic exponent. \\
+\bottomrule
+\end{tabularx}
+\caption{Nonlinear-dynamics measures returned by
+\code{complexity\_summary}. Every measure is applied to every 1-D signal,
+yielding a $|\text{signals}|\times 15$ table per clip.}
+\label{tab:complexity-measures}
+\end{table}
+
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=\linewidth]{figures/complexity_grid.png}
+  \caption{Complexity measures (columns) applied to each video signal
+  (rows) on \texttt{waves.mp4}. Cells are coloured by per-column
+  $z$-score so each measure is comparable across signals; cell text shows
+  the raw value. Note for instance that \code{flow\_curl\_abs\_mean} has a
+  much higher Higuchi FD than \code{luminance} -- a useful contrast for
+  cross-modal coupling, since the two signals carry information at
+  different scales.}
+  \label{fig:complexity-grid}
+\end{figure}
+
+% -------------------------------------------------------------------------
+\subsection{Time-resolved (windowed) complexity}\label{sec:wc}
+% -------------------------------------------------------------------------
+
+Setting \code{include\_windowed\_complexity=True} promotes a chosen
+subset of the measures in Sec.~\ref{sec:complexity} from
+\emph{scalars} to \emph{1-D signals} by running them in a sliding
+window of length $W$ (default $2.0$~s) at hop $h$ (default $0.25$~s):
+\begin{equation}
+  M^{(\text{measure})}_t = \mathcal{M}\bigl(x[t - W/2 :\, t + W/2]\bigr).
+\end{equation}
+The result is interpolated back to the original frame grid and added to
+\code{feats.signals} under keys \code{wc\_<source>\_\_<measure>}, e.g.\
+\code{wc\_flow\_mag\_mean\_\_perm\_entropy}. \emph{Complexity itself
+becomes a coupling-ready signal} -- the natural object to correlate with
+neural complexity time series (e.g.\ rolling Higuchi FD on EEG)
+rather than with raw neural amplitude.
+
+% =========================================================================
+\section{Hyperparameters \& defaults}\label{sec:hp}
+% =========================================================================
+
+Defaults were tuned on the three example clips
+(\texttt{waves.mp4}, \texttt{rapid\_waves.mp4},
+\texttt{generated\_waves.mp4}) and validated by visual inspection of the
+overlay assets in Fig.~\ref{fig:overlays}.
+
+\begin{table}[ht]
+\centering
+\small
+\renewcommand{\arraystretch}{1.18}
+\setlength{\tabcolsep}{8pt}
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Parameter}                       & \textbf{Default}        & \textbf{Rationale}                      \\
+\midrule
+\code{target\_long}                      & 192                     & long-axis pixel count of analysis grid.  \\
+\code{stride}                            & 1                       & process every frame.                     \\
+\code{Farneback winsize}                 & \textbf{21}              & smoother on textured water vs.\ 15.      \\
+\code{Farneback levels}                  & \textbf{4}               & better large-displacement support.       \\
+\code{Farneback iterations}              & \textbf{5}               & noise reduction.                         \\
+\code{Farneback poly\_n}                 & \textbf{7}               & robust local polynomial fit.             \\
+\code{Farneback poly\_sigma}             & \textbf{1.5}             & matches \code{poly\_n}.                  \\
+\code{Canny low / high}                  & \textbf{35 / 110}        & catches soft foam edges; default 60/150 missed them on water. \\
+\code{patch\_size} (entropy heatmap)     & \textbf{24}              & cells read clearly when overlaid.        \\
+\code{modal\_k}                          & 4                       & top modes; PyDMD or SVD.                 \\
+\code{modal\_target\_long}               & 96                      & $96^2$ pixels keeps SVD memory low.      \\
+\code{timestack column\_frac}            & 0.5                     & midline column.                          \\
+\code{wc win\_sec}                       & 2.0                     & 2-s window @ 24~fps $=$ 48 samples.      \\
+\code{wc step\_sec}                      & 0.25                    & $\sim$$4$~Hz time-resolution of the WC.  \\
+\bottomrule
+\end{tabular}
+\caption{Default hyperparameters. Bolded entries differ from naive defaults
+and were tuned on water footage.}
+\label{tab:hp}
+\end{table}
+
+% =========================================================================
+\section{Coupling integration}\label{sec:coupling}
+% =========================================================================
+
+Every signal in \code{feats.signals} is a 1-D \code{np.ndarray} sampled at
+$f_s = \code{feats.fs}$ and is therefore an immediate input to the
+existing coupling tools in \code{HNA.modules.coupling}:
+
+\begin{lstlisting}
+from HNA.modules.coupling import (
+    windowed_xcorr,        # peak r and lag, sliding window
+    band_coherence,        # Welch coherence, peak + band-avg
+    plv_phase_sync,        # phase-locking value at f0
+    wpli_phase_sync,       # weighted phase-lag index
+    band_coherence_windowed,
+)
+
+# Example: video luminance vs. respiration envelope
+xc  = windowed_xcorr(video_luminance, respiration, fs=video_fs,
+                     win_sec=180, step_sec=10, max_lag_sec=30)
+coh = band_coherence (video_luminance, respiration, fs=video_fs,
+                      fmin=0.08, fmax=0.35)
+plv = plv_phase_sync (video_luminance, respiration, fs=video_fs)
+\end{lstlisting}
+
+The signals to consider depend on the physiological band of interest:
+
+\begin{itemize}[leftmargin=1.5em,itemsep=0.4em]
+  \item \textbf{HRV / respiration ($0.04$--$0.4$~Hz)}: \code{flow\_mag\_mean},
+        \code{frame\_diff}, \code{modal\_1}, \code{patch\_entropy}. The
+        timestack peak (typically $0.125$--$0.25$~Hz) sits squarely inside
+        this band.
+  \item \textbf{EEG band-limited power}: filter the band on the EEG side as
+        usual, then correlate against \code{frame\_diff} or
+        \code{flow\_mag\_mean} at the same temporal scale, paralleling the
+        existing audio-envelope analysis.
+  \item \textbf{Complexity coupling}: pair \code{wc\_flow\_mag\_mean\_\_higuchi\_fd}
+        with rolling Higuchi FD on EEG, or
+        \code{wc\_patch\_entropy\_\_perm\_entropy} with rolling permutation
+        entropy on HRV; same statistic on both sides yields a clean
+        comparable estimate.
+\end{itemize}
+
+% =========================================================================
+\section{Validation}\label{sec:results}
+% =========================================================================
+
+The three example clips bracket realistic conditions:
+\texttt{waves.mp4} (24~fps, 19~s of slow swell),
+\texttt{rapid\_waves.mp4} (25~fps, 21~s of faster wind-driven waves),
+and a synthetic clip \texttt{generated\_waves.mp4} (30~fps, 10~s,
+sinusoidal swell at $0.25$~Hz). For all three, the timestack peak and
+the dominant SVD-modal frequency agree to within the Welch resolution
+(Fig.~\ref{fig:modal-freqs}), confirming that two independent estimators
+of the wave period converge -- a sanity check on the pipeline.
+
+\begin{table}[ht]
+\centering
+\small
+\renewcommand{\arraystretch}{1.18}
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{Clip} & $f_s$ (Hz) & timestack $\hat f$ (Hz) & top SVD-mode $f$ (Hz) & \code{lum.dfa\_alpha} \\
+\midrule
+\texttt{waves.mp4}            & 24.0  & 0.125 (8.0~s) & 0.094 & 1.97 \\
+\texttt{rapid\_waves.mp4}     & 25.0  & 0.125 (8.0~s) & 0.098 & 1.82 \\
+\texttt{generated\_waves.mp4} & 29.97 & 0.250 (4.0~s) & 0.234 & 1.82 \\
+\bottomrule
+\end{tabular}
+\caption{Convergence of two independent oscillation estimators
+(timestack 1-D FFT and SVD-POD) and DFA on the global luminance signal.
+Both methods recover the dominant wave frequency for the synthetic clip
+($0.25$~Hz) and place the natural-clip period near $8$~s.}
+\label{tab:val}
+\end{table}
+
+% =========================================================================
+\section{Reproducibility}
+% =========================================================================
+
+\begin{lstlisting}
+# 1. Install Python deps (cv2 / antropy / neurokit2 are required;
+#    pydmd is optional and falls back to SVD/POD if absent).
+pip install -r requirements.txt
+
+# 2. Quantify a single video, save signals + summary
+python scripts/quantify_video.py --videos video_examples/waves.mp4 \
+       --out results/video_features --plot
+
+# 3. Pre-render animation assets and the LaTeX-report figures
+python scripts/render_animation_assets.py --video video_examples/waves.mp4 \
+       --out remotion --max-seconds 8
+python scripts/report_figures.py
+
+# 4. Compile this report
+tectonic report/main.tex
+\end{lstlisting}
+
+% =========================================================================
+\section*{References}
+\addcontentsline{toc}{section}{References}
+% =========================================================================
+
+\begingroup
+\renewcommand{\section}[2]{}
+\begin{thebibliography}{99}\small
+\bibitem[Bandt \& Pompe(2002)]{bandt2002}
+C.~Bandt and B.~Pompe.
+\newblock Permutation entropy: a natural complexity measure for time series.
+\newblock \emph{Physical Review Letters}, 88(17), 174102, 2002.
+
+\bibitem[Canny(1986)]{canny1986}
+J.~Canny.
+\newblock A computational approach to edge detection.
+\newblock \emph{IEEE Trans.\ Pattern Anal.\ Mach.\ Intell.}, 8(6), 679--698, 1986.
+
+\bibitem[Costa \emph{et al.}(2002)]{costa2002}
+M.~Costa, A.~L.~Goldberger, C.-K.~Peng.
+\newblock Multiscale entropy analysis of complex physiologic time series.
+\newblock \emph{Physical Review Letters}, 89(6), 068102, 2002.
+
+\bibitem[Farneback(2003)]{farneback2003}
+G.~Farneb\"ack.
+\newblock Two-frame motion estimation based on polynomial expansion.
+\newblock In \emph{Scandinavian Conference on Image Analysis}, 363--370, 2003.
+
+\bibitem[Haralick \emph{et al.}(1973)]{haralick1973}
+R.~M.~Haralick, K.~Shanmugam, I.~Dinstein.
+\newblock Textural features for image classification.
+\newblock \emph{IEEE Trans.\ Systems, Man, Cybernetics}, SMC-3(6), 610--621, 1973.
+
+\bibitem[Hjorth(1970)]{hjorth1970}
+B.~Hjorth.
+\newblock EEG analysis based on time domain properties.
+\newblock \emph{Electroencephalography and Clinical Neurophysiology}, 29(3), 306--310, 1970.
+
+\bibitem[Holman \& Stanley(2007)]{holman2007}
+R.~A.~Holman and J.~Stanley.
+\newblock The history and technical capabilities of Argus.
+\newblock \emph{Coastal Engineering}, 54(6--7), 477--491, 2007.
+
+\bibitem[Kutz \emph{et al.}(2016)]{kutz2016}
+J.~N.~Kutz, S.~L.~Brunton, B.~W.~Brunton, J.~L.~Proctor.
+\newblock \emph{Dynamic Mode Decomposition}. SIAM, 2016.
+
+\bibitem[Lempel \& Ziv(1976)]{lempel1976}
+A.~Lempel and J.~Ziv.
+\newblock On the complexity of finite sequences.
+\newblock \emph{IEEE Trans.\ Inform.\ Theory}, IT-22(1), 75--81, 1976.
+
+\bibitem[Makowski \emph{et al.}(2021)]{neurokit2}
+D.~Makowski \emph{et al.}
+\newblock NeuroKit2: A Python toolbox for neurophysiological signal processing.
+\newblock \emph{Behavior Research Methods}, 53(4), 1689--1696, 2021.
+
+\bibitem[Allgood(1991)]{allgood1991}
+B.~B.~Mandelbrot (and Allgood/Plotnick variants).
+\newblock The fractal geometry of nature; lacunarity definition.
+\newblock W.~H.~Freeman, 1991.
+
+\bibitem[Bouguet(2001)]{bouguet2001}
+J.-Y.~Bouguet.
+\newblock Pyramidal implementation of the affine Lucas Kanade feature tracker
+description of the algorithm.
+\newblock \emph{Intel Corporation}, 5(1-10):4, 2001.
+
+\bibitem[Demo \emph{et al.}(2018)]{demo2018pydmd}
+N.~Demo, M.~Tezzele, G.~Rozza.
+\newblock PyDMD: Python Dynamic Mode Decomposition.
+\newblock \emph{Journal of Open Source Software}, 3(22):530, 2018.
+
+\bibitem[Plotnick \emph{et al.}(1993)]{plotnick1993}
+R.~E.~Plotnick, R.~H.~Gardner, R.~V.~O'Neill.
+\newblock Lacunarity indices as measures of landscape texture.
+\newblock \emph{Landscape Ecology}, 8(3):201--211, 1993.
+
+\bibitem[Zach \emph{et al.}(2007)]{zach2007}
+C.~Zach, T.~Pock, H.~Bischof.
+\newblock A duality based approach for realtime TV-L$^1$ optical flow.
+\newblock In \emph{DAGM Pattern Recognition}, pp.~214--223, 2007.
+
+\bibitem[Peng \emph{et al.}(1995)]{peng1995}
+C.-K.~Peng, S.~Havlin, H.~E.~Stanley, A.~L.~Goldberger.
+\newblock Quantification of scaling exponents and crossover phenomena in
+nonstationary heartbeat time series.
+\newblock \emph{Chaos}, 5(1), 82--87, 1995.
+
+\bibitem[Richman \& Moorman(2000)]{richman2000}
+J.~S.~Richman and J.~R.~Moorman.
+\newblock Physiological time-series analysis using approximate entropy and
+sample entropy.
+\newblock \emph{American Journal of Physiology}, 278, H2039--H2049, 2000.
+
+\bibitem[Schmid(2010)]{schmid2010}
+P.~J.~Schmid.
+\newblock Dynamic mode decomposition of numerical and experimental data.
+\newblock \emph{Journal of Fluid Mechanics}, 656, 5--28, 2010.
+
+\bibitem[Vallat(2018+)]{antropy}
+R.~Vallat.
+\newblock AntroPy: entropy and complexity of (EEG) time-series in Python.
+\newblock \url{https://github.com/raphaelvallat/antropy}.
+
+\end{thebibliography}
+\endgroup
+
+\end{document}

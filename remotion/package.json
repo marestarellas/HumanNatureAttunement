@@ -1,0 +1,23 @@
+{
+  "name": "hna-video-showcase",
+  "version": "0.1.0",
+  "description": "Remotion animation showcasing HNA video-based wave quantification methods.",
+  "private": true,
+  "scripts": {
+    "preview": "remotion preview src/index.ts",
+    "render": "remotion render src/index.ts Showcase out/showcase.mp4",
+    "upgrade": "remotion upgrade"
+  },
+  "dependencies": {
+    "@remotion/cli": "^4.0.200",
+    "@remotion/media-utils": "^4.0.200",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "remotion": "^4.0.200"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "typescript": "^5.4.5"
+  }
+}

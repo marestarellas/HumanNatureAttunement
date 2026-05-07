@@ -8,3 +8,7 @@ antropy
 neurokit2
 seaborn
 mne
+opencv-python>=4.8
+# Optional, used by HNA.modules.video for spatio-temporal modal decomposition.
+# Falls back to plain SVD/POD if missing.
+# pydmd>=0.4
