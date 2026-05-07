@@ -61,7 +61,7 @@ from .oscillatory import (  # noqa: F401
     _coh_choose_nperseg,
 )
 
-# ---- Information (MI + effective MI + Granger + TE) ----
+# ---- Information (MI + effective MI + Granger + TE + PID + Phi-ID) ----
 from .information import (  # noqa: F401
     windowed_mi,
     effective_mi,
@@ -71,9 +71,12 @@ from .information import (  # noqa: F401
     windowed_granger,
     GrangerResult,
     transfer_entropy,
+    transfer_entropy_binned,
+    pid_2source,
+    phi_id,
 )
 
-# ---- Complexity (scaling-structure coupling) ----
+# ---- Complexity (linear coupling on complexity features) ----
 from .complexity import (  # noqa: F401
     exponent_matching,
     exponent_correlation,
@@ -83,6 +86,14 @@ from .complexity import (  # noqa: F401
     mse_matching,
     windowed_exponent,
     complexity_coupling,
+)
+
+# ---- Cross-complexity (genuinely scale-aware bivariate) ----
+from .cross_complexity import (  # noqa: F401
+    dcca,
+    dcca_rho,
+    cross_sample_entropy,
+    multiscale_cross_entropy,
 )
 
 # ---- Shared plot helpers ----

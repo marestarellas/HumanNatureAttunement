@@ -344,3 +344,225 @@ def transfer_entropy(
     te_xy = float(copent.transent(x, y, lag=lag, k=k))
     te_yx = float(copent.transent(y, x, lag=lag, k=k))
     return {"te_x_to_y": te_xy, "te_y_to_x": te_yx, "lag": lag, "k": k}
+
+
+# =====================================================================
+# Equal-frequency binning helper (used by transfer_entropy_binned + pid_2source)
+# =====================================================================
+def _equal_freq_bin(arr, n_bins):
+    """Equal-frequency binning to ``n_bins`` integer levels.
+
+    If the input has at most ``n_bins`` unique values (e.g. already
+    discrete), they are returned mapped 1-to-1 via ``np.searchsorted``,
+    avoiding the ``np.digitize`` edge-value collapse.
+    """
+    arr = np.asarray(arr, dtype=float)
+    uniq = np.unique(arr)
+    if len(uniq) <= n_bins:
+        return np.searchsorted(uniq, arr).astype(int)
+    q = np.linspace(0, 1, n_bins + 1)
+    edges = np.quantile(arr, q)
+    edges[0] -= 1e-12
+    edges[-1] += 1e-12
+    idx = np.digitize(arr, edges) - 1
+    return np.clip(idx, 0, n_bins - 1).astype(int)
+
+
+# =====================================================================
+# Schreiber-style binned TE via pyinform
+# =====================================================================
+def transfer_entropy_binned(
+    x: np.ndarray,
+    y: np.ndarray,
+    history: int = 1,
+    n_bins: int = 8,
+) -> dict:
+    """Schreiber 2000 transfer entropy via the ``pyinform`` package.
+
+    Continuous data is equal-frequency-binned to ``n_bins`` levels per
+    signal, then ``pyinform.transfer_entropy`` computes the binned TE in
+    bits in both directions.
+
+    Lazy import: raises ``ImportError`` with an install hint if
+    ``pyinform`` is not available.
+    """
+    try:
+        from pyinform import transfer_entropy as _pyte
+    except Exception as e:  # noqa: BLE001
+        raise ImportError(
+            "transfer_entropy_binned() requires the 'pyinform' package. "
+            "Install with: pip install pyinform. "
+            "For a no-deps continuous estimator, use transfer_entropy_knn()."
+        ) from e
+
+    x = np.asarray(x, dtype=float)
+    y = np.asarray(y, dtype=float)
+    n = min(len(x), len(y))
+    xi = _equal_freq_bin(x[:n], n_bins)
+    yi = _equal_freq_bin(y[:n], n_bins)
+    te_xy = float(_pyte(xi, yi, k=history))
+    te_yx = float(_pyte(yi, xi, k=history))
+    return {"te_x_to_y": te_xy, "te_y_to_x": te_yx,
+            "history": history, "n_bins": n_bins}
+
+
+# =====================================================================
+# Partial Information Decomposition (PID) via dit
+# =====================================================================
+def pid_2source(
+    x1: np.ndarray,
+    x2: np.ndarray,
+    y: np.ndarray,
+    n_bins: int = 4,
+    measure: str = "broja",
+) -> dict:
+    """Williams-Beer 2-source PID via the ``dit`` package.
+
+    Decomposes :math:`I(\\{X_1, X_2\\}; Y)` into four non-negative atoms
+    that sum to the joint MI:
+
+    .. math::
+       I(\\{X_1, X_2\\}; Y) = I_\\text{red} + I_\\text{unq}^{X_1}
+                                + I_\\text{unq}^{X_2} + I_\\text{syn}.
+
+    Continuous data is equal-frequency-binned to ``n_bins`` levels per
+    variable. ``measure="broja"`` uses the Bertschinger et al. 2014
+    non-negative decomposition (recommended); ``"wb"`` falls back to the
+    original Williams-Beer 2010 :math:`I_\\min` measure.
+
+    Returns ``{redundant, unique_x1, unique_x2, synergistic, mi_joint,
+    measure, n_bins}`` (atoms in bits).
+
+    Lazy import: raises ``ImportError`` if ``dit`` is not available.
+    Note: ``dit`` PID is exponentially expensive in alphabet size; raise
+    ``n_bins`` carefully (8 is roughly the upper limit for fast runs).
+    """
+    try:
+        import dit
+        from dit.pid import PID_BROJA, PID_WB
+    except Exception as e:  # noqa: BLE001
+        raise ImportError(
+            "pid_2source() requires the 'dit' package. "
+            "Install with: pip install dit"
+        ) from e
+
+    x1 = _equal_freq_bin(np.asarray(x1, dtype=float), n_bins)
+    x2 = _equal_freq_bin(np.asarray(x2, dtype=float), n_bins)
+    y = _equal_freq_bin(np.asarray(y, dtype=float), n_bins)
+    n = min(len(x1), len(x2), len(y))
+    x1, x2, y = x1[:n], x2[:n], y[:n]
+
+    counts = {}
+    for a, b, c in zip(x1, x2, y):
+        key = (int(a), int(b), int(c))
+        counts[key] = counts.get(key, 0) + 1
+    outcomes = list(counts.keys())
+    pmf = np.array([counts[o] for o in outcomes], dtype=float)
+    pmf /= pmf.sum()
+    d = dit.Distribution(outcomes, pmf)
+
+    cls = PID_BROJA if measure.lower() == "broja" else PID_WB
+    pid = cls(d)
+
+    def _atom(key):
+        try:
+            return float(pid.get_pi(key))
+        except Exception:
+            return float("nan")
+
+    # dit antichain key syntax (verified against pid._pis dict):
+    #   ((0,),)        -> unique to source 0
+    #   ((1,),)        -> unique to source 1
+    #   ((0,), (1,))   -> redundancy (intersection of {0} and {1})
+    #   ((0, 1),)      -> synergy (joint atom)
+    return {
+        "redundant":   _atom(((0,), (1,))),
+        "unique_x1":   _atom(((0,),)),
+        "unique_x2":   _atom(((1,),)),
+        "synergistic": _atom(((0, 1),)),
+        "mi_joint":    float(pid._total),
+        "measure":     measure,
+        "n_bins":      n_bins,
+    }
+
+
+# =====================================================================
+# Integrated Information Decomposition (Phi-ID) via phyid
+# =====================================================================
+def phi_id(
+    x: np.ndarray,
+    y: np.ndarray,
+    tau: int = 1,
+    kind: str = "gaussian",
+    redundancy: str = "MMI",
+) -> dict:
+    """Full 16-atom Integrated Information Decomposition (Mediano et al. 2021).
+
+    Lazy wrapper around the ``phyid`` package. Decomposes the time-shifted
+    information flow :math:`(X_t, Y_t) \\to (X_{t+\\tau}, Y_{t+\\tau})`
+    into 16 atoms organised as a 4 x 4 lattice (4 source atom-types
+    {redundant, unique-X, unique-Y, synergistic} crossed with the same
+    4 target atom-types). Returns the **time-averaged** value of every
+    atom plus several aggregate coupling summaries.
+
+    Atom keys (``source-to-target``):
+        ``rtr, rtx, rty, rts, xtr, xtx, xty, xts,
+        ytr, ytx, yty, yts, str, stx, sty, sts``
+
+    Aggregates returned:
+        * ``transfer_x_to_y``  = ``rty + xty + sty`` --- canonical TE
+          analogue: information landing on Y from sources containing X.
+        * ``transfer_y_to_x``  = ``rtx + ytx + stx``
+        * ``storage``          = ``rtr + xtx + yty + sts``
+        * ``synergy``          = ``sts``  --- info present in joint
+          dynamics that no marginal carries (the canonical "emergence"
+          atom).
+        * ``total``            = sum of all 16 atoms.
+
+    Parameters
+    ----------
+    x, y : array-like, shape (N,)
+    tau : int
+        Time-lag for the source -> target transition (default 1).
+    kind : str
+        ``"gaussian"`` (continuous, analytic) or ``"discrete"``.
+    redundancy : str
+        ``"MMI"`` (Minimum Mutual Information; default) or ``"CCS"``
+        (common change in surprisal). MMI is the most widely-used.
+
+    Lazy import: raises ``ImportError`` with an install hint if
+    ``phyid`` is not available.
+    """
+    try:
+        from phyid.calculate import calc_PhiID
+    except Exception as e:  # noqa: BLE001
+        raise ImportError(
+            "phi_id() requires the 'phyid' package "
+            "(Mediano et al. 2021). Install with: "
+            "pip install git+https://github.com/Imperial-MIND-lab/integrated-info-decomp"
+        ) from e
+
+    x = np.asarray(x, dtype=float)
+    y = np.asarray(y, dtype=float)
+    atoms, _ = calc_PhiID(x, y, tau=tau, kind=kind, redundancy=redundancy)
+
+    means = {k: float(np.nanmean(v)) for k, v in atoms.items()}
+
+    transfer_x_to_y = means.get("rty", 0) + means.get("xty", 0) + means.get("sty", 0)
+    transfer_y_to_x = means.get("rtx", 0) + means.get("ytx", 0) + means.get("stx", 0)
+    storage = (means.get("rtr", 0) + means.get("xtx", 0)
+               + means.get("yty", 0) + means.get("sts", 0))
+    synergy = means.get("sts", 0)
+    total = sum(means.values())
+
+    return {
+        "atoms":           means,
+        "transfer_x_to_y": transfer_x_to_y,
+        "transfer_y_to_x": transfer_y_to_x,
+        "storage":         storage,
+        "synergy":         synergy,
+        "total":           total,
+        "tau":             tau,
+        "kind":            kind,
+        "redundancy":      redundancy,
+    }

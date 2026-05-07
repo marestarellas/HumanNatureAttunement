@@ -57,14 +57,17 @@ FAMILY_COLORS = {
 CELLS = [
     # Row 0: raw signal
     [
-        ("windowed_xcorr",
+        ("cross-correlation",
          "lag-search Pearson\non raw samples",
          "named"),
         ("(feature step needed)",
          "PLV / wPLI / coherence\nimply Hilbert / Welch first",
          "rare"),
-        ("MI, effective MI,\nGranger, TE",
-         "global statistical\ndependence",
+        ("MI, effective MI,\nGranger, TE,\nPID, $\\Phi$-ID",
+         "global / directional /\nsynergistic information",
+         "named"),
+        ("DCCA, DCCA-$\\rho$,\ncross-sample entropy,\nmultiscale variant",
+         "scale-resolved bivariate\nfluctuation / regularity",
          "named"),
     ],
     # Row 1: oscillatory features (envelope / phase / band-power)
@@ -78,13 +81,17 @@ CELLS = [
         ("MI of envelopes /\nband-power traces",
          "non-linear envelope\ncoupling",
          "pattern"),
+        ("(uncommon)",
+         "DCCA on envelopes;\nrarely standard",
+         "rare"),
     ],
-    # Row 2: complexity features (fractality + entropy)
-    # All four toolbox-named methods land in the LINEAR cell here, because
-    # they are all linear comparisons applied to a complexity feature
-    # (scalar alpha, F(s) / MSE curve over scales, alpha(t) trace over time).
+    # Row 2: complexity features (fractality + entropy).
+    # The "linear" cell holds the four legacy "linear-on-complexity-feature"
+    # methods; the new cross_complexity column finally fills the
+    # complexity-x-complexity cell with genuine cross methods (could
+    # also be reached via composition with DCCA on complexity traces).
     [
-        ("exponent_matching\nfluctuation_matching\nmse_matching\ncomplexity_coupling",
+        ("exponent matching\nfluctuation matching\nMSE matching\ncomplexity coupling",
          "scalar / scale curves / time trace;\nall = Pearson on the feature",
          "named"),
         ("(rare)",
@@ -93,6 +100,9 @@ CELLS = [
         ("MI between\ncomplexity traces",
          "non-linear coupling\nof scaling / entropy",
          "pattern"),
+        ("(compose)",
+         "DCCA on complexity\ntraces -- exotic",
+         "rare"),
     ],
 ]
 
@@ -106,9 +116,10 @@ ROW_LABELS = [
 ]
 
 COL_LABELS = [
-    ("Linear",       "linear",      "lag-zero / lag-search\nPearson"),
+    ("Linear",       "linear",      "Pearson, cross-correlation"),
     ("Oscillatory",  "oscillatory", "phase / spectrum /\nphase-amplitude"),
-    ("Information",  "information", "MI, effective MI,\nGranger, TE"),
+    ("Information",  "information", "MI, effective MI, Granger,\nTE, PID, $\\Phi$-ID"),
+    ("Complexity",   "complexity",  "DCCA, cross-sample\nentropy, multiscale"),
 ]
 
 
@@ -123,7 +134,7 @@ def _draw_cell(ax, x, y, w, h, headline, body, kind, accent_color):
         edge_w = 1.6
         head_color = accent_color
         head_weight = "bold"
-        head_size = 10.5
+        head_size = 9.8
         body_color = "#333333"
         body_alpha = 1.0
     elif kind == "pattern":
@@ -211,7 +222,7 @@ def _draw_row_header(ax, x, y, w, h, label, sub):
 def make_figure(out_path: Path):
     use_paper_style()
 
-    fig, ax = plt.subplots(figsize=(11.5, 7.4))
+    fig, ax = plt.subplots(figsize=(14.5, 7.4))
     ax.set_xlim(0, 1)
     ax.set_ylim(0, 1)
     ax.set_aspect("auto")

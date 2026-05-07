@@ -16,5 +16,14 @@ dependencies = [
   "soundfile>=0.12",
 ]
 
+[project.optional-dependencies]
+# Information-theoretic estimators that wrap external toolboxes.
+# `phyid` is on GitHub only and must be installed via `pip install
+# git+https://github.com/Imperial-MIND-lab/integrated-info-decomp`.
+info = [
+  "pyinform>=0.2",   # Schreiber transfer entropy (binned)
+  "dit>=1.5",        # Williams-Beer / BROJA partial information decomposition
+]
+
 [tool.setuptools.packages.find]
 where = ["src"]

@@ -105,7 +105,8 @@ A multimodal coupling analysis always involves two implicit choices:
         \emph{complexity feature} (DFA scaling exponent, fractal
         dimension, FOOOF aperiodic exponent, multiscale entropy).
   \item \textbf{How to compare them} --- with a \emph{linear},
-        \emph{oscillatory}, or \emph{information-theoretic} estimator.
+        \emph{oscillatory}, \emph{information-theoretic}, or
+        \emph{cross-complexity} estimator.
 \end{enumerate}
 
 These two choices are independent. Some methods bake the feature step
@@ -115,20 +116,20 @@ amplitude). Others (cross-correlation, mutual information) accept any
 1-D input. The framework presented in this report makes the choice
 \emph{explicit}: pick a feature per signal, pick a coupling method,
 combine. Many named methods then reveal themselves as cells of a
-\(3 \times 3\) grid (Figure~\ref{fig:framework}).
+\(3 \times 4\) grid (Figure~\ref{fig:framework}).
 
-A perhaps surprising consequence is that ``complexity'' is naturally a
-\emph{feature axis}, not a coupling axis. Every method in the toolbox's
-\texttt{coupling.complexity} subpackage --- \texttt{exponent\_matching},
-\texttt{fluctuation\_matching}, \texttt{mse\_matching},
-\texttt{complexity\_coupling} --- is a \emph{linear} comparison applied
-to a complexity feature: a scalar (DFA $\alpha$), a curve indexed by
-scale ($F(s)$, MSE($\tau$)), or a trace indexed by time ($\alpha(t)$).
-The complexity character lives in the feature; the comparison step is
-plain Pearson. Genuine cross-complexity \emph{coupling} estimators
-(detrended cross-correlation analysis, multiscale cross-entropy,
-multiscale cross-mutual-information) exist in the literature but are
-not yet implemented in HNA --- see \S\ref{sec:future} for future work.
+The HNA toolbox separates two notions of "complexity coupling".
+The legacy \texttt{coupling.complexity} subpackage
+(\texttt{exponent\_matching}, \texttt{fluctuation\_matching},
+\texttt{mse\_matching}, \texttt{complexity\_coupling}) holds methods
+that are \emph{linear} comparisons applied to a complexity feature ---
+the complexity character lives in the feature, the comparison step is
+plain Pearson; these methods occupy the linear column of the
+complexity-features row in Figure~\ref{fig:framework}. The new
+\texttt{coupling.cross\_complexity} subpackage holds the genuinely
+scale-aware bivariate estimators (DCCA, cross-sample entropy,
+multiscale cross-entropy --- \S\ref{sec:cross-complexity}) that
+populate the \emph{complexity} coupling column.
 
 The framework also clarifies that ``phase-amplitude coupling'' (PAC) is
 \emph{oscillatory} coupling between two \emph{oscillatory} features (a
@@ -149,7 +150,7 @@ defensible group-level claim.
   \centering
   \includegraphics[width=\textwidth]{Methods5_features_x_coupling.png}
   \caption{\label{fig:framework}\textbf{The features $\times$ coupling
-    design space.} Three feature families (rows) crossed with three
+    design space.} Three feature families (rows) crossed with four
     coupling-method families (columns). Cells outlined and labelled in
     colour are named, ready-to-use methods in the HNA toolbox; lighter
     cells describe the general pattern; faded cells flag uncommon or
@@ -158,12 +159,17 @@ defensible group-level claim.
     look like ``oscillatory on the raw signal'' (PLV, wPLI, coherence)
     embed a Hilbert / Welch feature step and therefore actually live in
     the ``oscillatory features $\times$ oscillatory'' cell one row
-    down. The bottom-left cell carries all four toolbox-named
-    complexity methods --- exponent matching, fluctuation matching,
-    MSE matching, and complexity coupling --- because they are all
-    linear comparisons applied to a complexity feature, varying only
-    in which observable of complexity (scalar, scale-resolved curve,
-    or time-resolved trace) is compared.}
+    down. The \emph{Information} column carries the modern toolbox of
+    statistical-dependence estimators including transfer entropy
+    (\texttt{transfer\_entropy\_binned}), Williams-Beer / BROJA
+    Partial Information Decomposition (\texttt{pid\_2source}), and the
+    full 16-atom Integrated Information Decomposition
+    (\texttt{phi\_id}). The \emph{Complexity} column is filled by
+    genuinely scale-aware bivariate estimators
+    (\texttt{dcca}, \texttt{dcca\_rho}, \texttt{cross\_sample\_entropy},
+    \texttt{multiscale\_cross\_entropy}), as opposed to the
+    "linear-on-complexity-feature" methods which still live in the
+    bottom-left cell.}
 \end{figure}
 
 \section{Notation and toolbox layout}
@@ -323,6 +329,29 @@ synthetic signal pair.
     overlap.}
 \end{figure}
 
+To preview \emph{how each family responds across genuinely different
+coupling structures}, Figure~\ref{fig:cases} runs all four canonical
+estimators on five constructed scenarios. Each case has a clear
+single-method peak corresponding to the family it was built to
+exemplify. The take-home is that \emph{no single method is best}:
+Pearson misses $90^\circ$ phase coupling; PLV misses non-linear and
+complexity coupling; mutual information misses pure phase locking
+when amplitudes are uncorrelated; complexity matching fires on
+signals whose \emph{scaling} co-drifts, even when amplitudes never
+touch (further discussion in \S\ref{sec:guidelines}).
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{Methods3_coupling_cases.png}
+  \caption{\label{fig:cases}\textbf{Five clear coupling scenarios.}
+    Left column: synthetic signal pair (15\,s preview).
+    Right column: each method's response, scaled to the method's
+    maximum across cases (raw value annotated above each bar). The
+    ``coupling family'' colour code matches every figure in this
+    report. Each case has a single-method peak corresponding to the
+    family it was constructed to exemplify.}
+\end{figure}
+
 \subsection{Linear family --- windowed cross-correlation}
 
 The simplest family: time-domain linear amplitude alignment, possibly
@@ -406,48 +435,98 @@ mvl = canolty_mvl(eeg_low, eeg_high, fs=256,
                   low_band=(4, 8), high_band=(30, 50)).mvl
 \end{lstlisting}
 
-\subsection{Information family --- MI, effective MI, Granger, transfer entropy}
+\subsection{Information family --- MI, effective MI, Granger, TE, PID, $\Phi$-ID}
 
-Probabilistic and directional dependence.
+Probabilistic, directional, and decomposed statistical dependence.
 
 \paragraph{Mutual information (MI).}
 $I(X;Y) = \int p(x,y) \log\!\bigl(p(x,y) / (p(x)p(y))\bigr)\,dx\,dy$,
 estimated with the kNN/Kraskov-style estimator from
 \texttt{sklearn.feature\_selection.mutual\_info\_regression}~\cite{Kraskov2004}.
-A practical caveat: the kNN MI estimator is biased upward on
-auto-correlated time series, because it assumes i.i.d.\ samples. The
-toolbox's \texttt{coupling.information.windowed\_mi} reports the raw
-estimate; for absolute values we recommend (a)~decorrelating
-downsampling before the call (e.g.\ keep every $f_s/4$-th sample), or
+The kNN MI estimator is biased upward on auto-correlated time series;
+\texttt{coupling.information.windowed\_mi} reports the raw estimate.
+For absolute values we recommend (a)~decorrelating downsampling, or
 (b)~the bias-corrected variant below.
 
 \paragraph{Effective mutual information.}
 \(I_{\text{eff}} = I(X;Y) - \overline{I(X; \tilde Y)}\), where $\tilde Y$
 is a phase-shuffled surrogate of $Y$ that preserves $Y$'s spectrum but
-breaks the temporal relationship to $X$. The bias from shared spectral
+breaks the temporal relationship. The bias from shared spectral
 structure cancels.
 
 \paragraph{Granger causality.}
 A linear-Gaussian special case of transfer entropy. The toolbox fits a
 bivariate VAR via \texttt{statsmodels} and reports F-statistics for
 ``$X$~Granger-causes~$Y$'' and the reverse, plus a signed score
-\(\log_{10}p_{Y\to X} - \log_{10}p_{X\to Y}\) (positive $\Rightarrow$
-$X$ drives $Y$). Granger is \emph{linear}; for non-Gaussian or non-linear
-direction, the toolbox includes a stub for kNN-based transfer
-entropy~\cite{Schreiber2000} that loads the optional \texttt{copent}
-dependency lazily.
+$\log_{10}p_{Y\to X} - \log_{10}p_{X\to Y}$ (positive $\Rightarrow$
+$X$ drives $Y$). Granger is \emph{linear}; for non-Gaussian or
+non-linear direction, use TE or $\Phi$-ID below.
+
+\paragraph{Transfer entropy (binned).}
+$\text{TE}(X \to Y) = I(Y_{t+1};\, X_t \mid Y_t)$ --- the information
+about $Y$'s next value carried by $X$'s past beyond what $Y$'s own
+past provides~\cite{Schreiber2000}. The toolbox wraps the
+\texttt{pyinform}~\cite{pyinform2018} implementation of Schreiber's
+original binned estimator. Continuous data is equal-frequency-binned
+to \texttt{n\_bins} levels; both directions are returned.
+
+\paragraph{Partial Information Decomposition (PID).}
+For two sources $X_1, X_2$ and a target $Y$, PID decomposes the joint
+mutual information into four non-negative atoms whose sum equals
+$I(\{X_1, X_2\}; Y)$:
+\begin{equation}
+I(\{X_1, X_2\}; Y) \;=\;
+   I_{\mathrm{red}}
+ + I_{\mathrm{unq}}^{X_1}
+ + I_{\mathrm{unq}}^{X_2}
+ + I_{\mathrm{syn}}.
+\end{equation}
+Redundancy is the information that \emph{either} source alone carries
+about $Y$; uniques are what \emph{only} that source carries; synergy is
+the information that requires both sources jointly~\cite{WilliamsBeer2010}.
+The toolbox wraps the \texttt{dit}~\cite{ditpkg} implementation of the
+canonical Bertschinger et al.\ \emph{BROJA}
+estimator~\cite{Bertschinger2014}, with the original Williams-Beer
+$I_{\min}$ as a fallback. Continuous data is equal-frequency-binned (PID
+on continuous variables is exponentially expensive; \texttt{n\_bins=4}
+is a sensible default). On the canonical 3-variable systems the toolbox
+recovers the textbook signatures: XOR $\Rightarrow$ all info synergistic;
+COPY ($Y\!=\!X_1$) $\Rightarrow$ all info unique-to-$X_1$;
+$X_2\!=\!X_1$, $Y\!=\!X_1$ $\Rightarrow$ all info redundant.
+
+\paragraph{Integrated Information Decomposition ($\Phi$-ID).}
+Mediano et al.~\cite{Mediano2021} extend PID to time-evolving systems:
+the information flow $(X_t, Y_t) \to (X_{t+\tau}, Y_{t+\tau})$ is
+decomposed into 16 atoms organised as a $4\!\times\!4$ lattice
+(redundant / unique-X / unique-Y / synergistic on the source side,
+crossed with the same four on the target side). The toolbox wraps
+the \texttt{phyid} package; \texttt{phi\_id(x, y, tau=1)} returns the
+time-averaged 16 atoms plus useful aggregate summaries:
+\texttt{transfer\_x\_to\_y} (a TE analogue, summing source-includes-X
+$\to$ target-Y atoms), \texttt{storage}, and \texttt{synergy} (the
+canonical "emergence" atom \texttt{sts} where information is present
+in the joint dynamics that no marginal carries).
 
 \begin{lstlisting}
 from HNA.coupling import (
     windowed_mi, effective_mi, granger_bivariate, granger_score,
+    transfer_entropy_binned, pid_2source, phi_id,
 )
 
 raw_mi  = windowed_mi(x, y, fs=256, win_sec=60)
 em      = effective_mi(x, y, fs=256, n_surrogates=200)
 gb      = granger_bivariate(x, y, max_lag=10, ic="aic")
+te      = transfer_entropy_binned(x, y, history=1, n_bins=8)
+pid     = pid_2source(x1, x2, y, n_bins=4, measure="broja")
+phi     = phi_id(x, y, tau=1, kind="gaussian")
 \end{lstlisting}
 
+Methods Figure~\ref{fig:complexinfo} shows TE / Phi-ID / PID running on
+synthetic systems with known structure (XOR / COPY / RED / AND for PID;
+independent / x-causes-y / bidirectional for TE and Phi-ID).
+
 \subsection{Linear coupling on complexity features}
+\label{sec:linear-complexity}
 
 Despite the toolbox subpackage being called \texttt{coupling.complexity},
 \emph{every method here is a linear comparison applied to a complexity
@@ -526,11 +605,132 @@ cc = complexity_coupling(x, y, fs=256,   # alpha(t) trace coupling
 
 \paragraph{What this section is \emph{not}.}
 None of the methods above is a genuine cross-complexity coupling
-estimator in the sense of detrended cross-correlation analysis (DCCA),
-multiscale cross-entropy, or multiscale cross-mutual-information. Those
-would have a non-linear, scale-aware \emph{coupling step} (not just a
-non-linear feature). They are noted in \S\ref{sec:future} as the
-natural next addition to the toolbox.
+estimator in the sense of having a non-linear, scale-aware
+\emph{coupling step}. The next subsection introduces the bivariate
+estimators that fill this gap.
+
+\subsection{Cross-complexity family --- DCCA, cross-sample-entropy}
+\label{sec:cross-complexity}
+
+The methods in this subsection are bivariate by construction: they
+compute a coupling that is itself scale-aware or non-linear, in
+contrast to the linear-Pearson-on-a-complexity-feature methods of
+\S\ref{sec:linear-complexity}. They occupy the rightmost column of
+the framework matrix in Figure~\ref{fig:framework}.
+
+\paragraph{Detrended Cross-Correlation Analysis (DCCA).}
+Podobnik \& Stanley~\cite{Podobnik2008} extend the univariate DFA
+algorithm to bivariate data. After integrated profiling and
+non-overlapping windowing at scale $s$, the cross-fluctuation
+function~$F_{xy}(s)$ is the mean across windows of the product of
+locally-detrended residuals,
+\(F_{xy}(s) = \langle \tilde X_w \cdot \tilde Y_w \rangle\). The
+log-log slope of $|F_{xy}|$ vs $s$ gives the joint scaling exponent
+$\lambda_{xy}$. Like univariate DFA, the method can detect
+long-range \emph{cross-correlations} that vanilla cross-correlation
+misses; unlike cross-correlation it produces a result \emph{at every
+scale}, not a single number.
+
+\paragraph{DCCA correlation coefficient $\rho_{xy}(s)$.}
+Zebende~\cite{Zebende2011} normalises DCCA to give the bivariate
+analogue of Pearson r at each scale:
+\begin{equation}
+\rho_{xy}(s) \;=\; \frac{F_{xy}(s)}{\sqrt{F_x(s)\,F_y(s)}}
+\;\in\; [-1,\, 1].
+\end{equation}
+This is the canonical \emph{scale-resolved coupling coefficient}: a
+single signal pair that has a strong slow shared component but
+independent fast components yields $\rho_{xy}(s) \approx 1$ at large $s$
+and $\rho_{xy}(s) \approx 0$ at small $s$ --- a structure that no
+single-scale method (Pearson r, MI, PLV at one frequency) can resolve.
+
+\paragraph{Cross-sample-entropy.}
+Pincus \& Singer~\cite{Pincus1996} generalise sample entropy to two
+signals: the proportion of length-$m$ template vector pairs
+$(X^m_i, Y^m_j)$ that match within tolerance $r$ is computed at $m$ and
+$m\!+\!1$, and cross-sample-entropy is
+$-\log(B^{m+1}/B^m)$. High values indicate that the joint dynamics is
+\emph{irregular}; low values indicate a tight bivariate structure.
+This is a regularity-based cross-coupling measure that, unlike
+amplitude- or phase-based measures, is sensitive to the joint
+deterministic structure of the two signals.
+
+\paragraph{Multiscale cross-sample-entropy.}
+Yan et al.~\cite{Yan2008} extend cross-sample-entropy to multiple
+scales by Costa-style coarse-graining: at each $\tau$, both signals
+are averaged in non-overlapping windows of length $\tau$ and
+cross-sample-entropy is recomputed (with tolerance $r$ kept fixed at
+the original-signal scale). The resulting curve diagnoses
+\emph{at what scales} the joint dynamics is most regular --- the
+direct analogue of multiscale entropy for a bivariate system.
+
+\begin{lstlisting}
+from HNA.coupling import (
+    dcca, dcca_rho, cross_sample_entropy, multiscale_cross_entropy,
+)
+
+# Scale-resolved coupling coefficient (the headline cross-complexity metric)
+rho = dcca_rho(x, y)             # rho["scales"], rho["rho"]
+fx  = dcca(x, y)                 # fluctuation function + lambda_xy
+
+# Joint regularity measures
+cse = cross_sample_entropy(x, y, m=2, r_factor=0.15)
+mse = multiscale_cross_entropy(x, y, scales=(1, 2, 3, 4, 6, 8, 12, 20))
+\end{lstlisting}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{Methods7_complexity_info_families.png}
+  \caption{\label{fig:complexinfo}\textbf{The cross-complexity and
+    information coupling families.} Top row: cross-complexity
+    estimators on a synthetic pair constructed to have
+    \emph{scale-dependent} coupling (shared slow + independent fast).
+    \textbf{A.} Time-series preview. \textbf{B.} DCCA correlation
+    coefficient $\rho_{xy}(s)$ rises from $\sim\!0$ at small scales
+    (independent fast components) to $\sim\!1$ at large scales
+    (shared slow component) --- a structure no single-scale method
+    can resolve. \textbf{C.} Multiscale cross-sample-entropy of the
+    same pair, showing joint regularity vs coarse-graining factor.
+    Bottom row: information-theoretic estimators. \textbf{D.}
+    Bidirectional transfer entropy (binned via \texttt{pyinform};
+    Phi-ID transfer atoms via \texttt{phyid}) and Granger F on three
+    canonical bivariate systems (independent / $x\!\to\!y$ /
+    bidirectional). \textbf{E.} 2-source PID atom decomposition
+    (BROJA, via \texttt{dit}) on the four canonical 3-variable
+    systems --- redundancy dominates RDN, synergy dominates XOR,
+    unique-$X_1$ dominates COPY, and AND mixes redundancy and
+    synergy. \textbf{F.} Full 16-atom $\Phi$-ID lattice for the
+    $x\!\to\!y$ system, with the cells whose source includes X and
+    target is Y (the TE-analogue) outlined in dashed black.}
+\end{figure}
+
+To close the methods tour with a cross-cutting summary,
+Figure~\ref{fig:matrix} cross-tabulates fourteen canonical estimators
+(spanning all four coupling families) against six known coupling
+structures. Each method's peak sits in the row of the coupling type it
+most directly tests; off-diagonal lights are real (e.g.\ information
+methods all fire on linearly-coupled signals because linear coupling is
+a special case of statistical dependence) and serve as a quick
+``what-else-might-this-method-report'' reference.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{Methods2v2_sensitivity_matrix.png}
+  \caption{\label{fig:matrix}\textbf{Method $\times$ signal-type
+    sensitivity matrix, framework-grouped.} Rows: six synthetic
+    signal-pair types with known coupling structure. Columns: fourteen
+    canonical estimators \emph{grouped by feature axis} (raw,
+    oscillatory, complexity --- bracket headers above the heatmap),
+    with the method-name colour encoding the \emph{coupling-method
+    axis} (linear blue / oscillatory teal / information purple /
+    complexity orange). Each column thus reads as an explicit (feature,
+    coupling) cell of the framework in Figure~\ref{fig:framework}. The
+    raw-feature group includes the new info-decomposition methods
+    (TE binned, $\Phi$-ID transfer, $\Phi$-ID synergy) and the
+    cross-complexity methods (DCCA-$\rho$, cross-sample-entropy).
+    Cells are the raw metric value, column-normalised to each method's
+    maximum across rows (annotation = actual raw value).}
+\end{figure}
 
 \section{Surrogate testing}
 
@@ -600,25 +800,13 @@ required, and where each method tends to mislead.
 
 \subsection{What does each family actually detect?}
 
-Figure~\ref{fig:cases} shows five clearly distinct coupling scenarios
-with each canonical estimator's response. The take-home: \emph{no
-single method is best}. Pearson alone misses phase coupling at
-$90^\circ$; PLV alone misses non-linear and complexity coupling; mutual
-information alone misses pure phase locking when amplitudes are
-uncorrelated; complexity matching fires on signals whose
-\emph{scaling} co-drifts, even when amplitudes never touch.
-
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=\textwidth]{Methods3_coupling_cases.png}
-  \caption{\label{fig:cases}\textbf{Five clear coupling scenarios.}
-    Left column: synthetic signal pair (15\,s preview).
-    Right column: each method's response, scaled to the method's
-    maximum across cases (raw value annotated above each bar). The
-    ``coupling family'' colour code matches every figure in this
-    report. Each case has a single-method peak corresponding to the
-    family it was constructed to exemplify.}
-\end{figure}
+The take-home from Figure~\ref{fig:cases} (presented earlier in
+\S\ref{sec:coupling}) is that \emph{no single method is best}.
+Pearson alone misses phase coupling at $90^\circ$; PLV alone misses
+non-linear and complexity coupling; mutual information alone misses
+pure phase locking when amplitudes are uncorrelated; complexity
+matching fires on signals whose \emph{scaling} co-drifts, even when
+amplitudes never touch.
 
 \subsection{Signal properties that enable / forbid a method}
 
@@ -685,33 +873,15 @@ a one-liner here in case the reader wants to reproduce or override.
 
 \subsection{Cross-method redundancy}
 
-For a given coupling structure, multiple methods often fire together.
-Figure~\ref{fig:matrix} cross-tabulates nine canonical estimators
-against six known coupling structures and shows where each
-\emph{peaks}. Diagonal-ish patterns are the rule, but several
+For a given coupling structure, multiple methods often fire together
+(see Figure~\ref{fig:matrix}, presented at the end of
+\S\ref{sec:coupling}). Diagonal-ish patterns are the rule, but several
 non-trivial off-diagonal lights are real and informative --- e.g.\
-information methods (\textsc{MI}, effective \textsc{MI}, Granger) all
-fire on linearly-coupled signals, because linear coupling is a special
-case of statistical dependence. The matrix is therefore best read as a
-``where is this method's home, and what else might it report?'' guide,
-not as a one-method-per-cell ranking.
-
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=\textwidth]{Methods2v2_sensitivity_matrix.png}
-  \caption{\label{fig:matrix}\textbf{Method $\times$ signal-type
-    sensitivity matrix, framework-grouped.} Rows: six synthetic
-    signal-pair types with known coupling structure. Columns: nine
-    canonical estimators \emph{grouped by feature axis} (raw,
-    oscillatory, complexity --- bracket headers above the heatmap),
-    with the method-name colour encoding the \emph{coupling-method
-    axis} (linear blue / oscillatory teal / information purple). Each
-    column thus reads as an explicit (feature, coupling) cell of the
-    framework in Figure~\ref{fig:framework}. Cells are the raw metric
-    value, column-normalised to each method's maximum across rows
-    (annotation = actual raw value). Each method's peak is in the row
-    of the coupling type it most directly tests.}
-\end{figure}
+information methods (\textsc{MI}, Granger, TE, $\Phi$-ID) all fire on
+linearly-coupled signals, because linear coupling is a special case of
+statistical dependence. The matrix is therefore best read as a ``where
+is this method's home, and what else might it report?'' guide, not as
+a one-method-per-cell ranking.
 
 \section{Worked example}
 
@@ -785,23 +955,21 @@ optional add-one cluster permutation on windowed traces) rather than a
 hierarchical mixed-effects framework. The toolbox is set up to handle
 both; the choice is sample-size driven, not method-driven.
 
-\paragraph{A genuine complexity-coupling family.} The framework
-(Figure~\ref{fig:framework}) deliberately has only three coupling
-columns --- linear, oscillatory, information --- because every method
-currently in the \texttt{coupling.complexity} subpackage is in fact a
-linear comparison of complexity \emph{features}. A genuine
-complexity-coupling family would contain estimators whose
-\emph{coupling step} is itself non-linear and scale-aware. The natural
-candidates are \textbf{Detrended Cross-Correlation Analysis
-(DCCA)}~\cite{Podobnik2008}, which gives a joint scaling exponent for
-two signals; \textbf{multiscale cross-entropy} and \textbf{cross sample
-entropy} extensions of multiscale entropy~\cite{Costa2002} to bivariate
-signals; and \textbf{multiscale cross-mutual-information}, which
-applies kNN MI at successive coarse-graining levels. Adding any of
-these promotes the framework to a \(3\!\times\!4\) grid in which the
-``complexity'' column is genuinely populated rather than merely a
-relabelling of linear coupling on a complexity feature. This is the
-natural next addition to the toolbox.
+\paragraph{Multifractal cross-correlation.} The
+\texttt{coupling.cross\_complexity} subpackage currently exposes
+mono-fractal DCCA. The natural extension is multifractal DCCA
+(MF-DCCA / MF-DXA)~\cite{Zhou2008}, which characterises the joint
+multifractal spectrum and reveals heterogeneity in scaling structure
+that the mono-fractal $\lambda_{xy}$ cannot resolve. This is one of
+the most natural next additions to the cross-complexity column.
+
+\paragraph{Multiscale cross-mutual-information.} The
+\texttt{multiscale\_cross\_entropy} estimator captures joint
+regularity at each coarse-graining scale; the analogous
+\emph{multiscale} cross-mutual-information would capture
+non-Gaussian coupling at each scale, complementing both DCCA (which
+is Gaussian-implicit) and \texttt{multiscale\_cross\_entropy} (which
+is regularity-based, not directly information-theoretic).
 
 \paragraph{Cross-modal complexity matching.} Even within the current
 linear-on-complexity-feature framing, multiscale entropy matching
@@ -880,6 +1048,52 @@ Podobnik B, Stanley HE.
 Detrended cross-correlation analysis: a new method for analyzing two
 nonstationary time series.
 \emph{Phys Rev Lett} 2008;100:084102.
+
+\bibitem{Zebende2011}
+Zebende GF.
+DCCA cross-correlation coefficient: quantifying level of
+cross-correlation. \emph{Physica A} 2011;390:614--618.
+
+\bibitem{Pincus1996}
+Pincus SM, Singer BH.
+Randomness and degrees of irregularity.
+\emph{Proc Natl Acad Sci USA} 1996;93:2083--2088.
+
+\bibitem{Yan2008}
+Yan R, Yang Z, Zhang T.
+Multiscale cross sample entropy.
+\emph{Phys Rev E} 2008;77:061915.
+
+\bibitem{Zhou2008}
+Zhou W-X.
+Multifractal detrended cross-correlation analysis for two
+non-stationary signals. \emph{Phys Rev E} 2008;77:066211.
+
+\bibitem{WilliamsBeer2010}
+Williams PL, Beer RD.
+Nonnegative decomposition of multivariate information.
+\emph{arXiv} 2010;1004.2515.
+
+\bibitem{Bertschinger2014}
+Bertschinger N, Rauh J, Olbrich E, Jost J, Ay N.
+Quantifying unique information.
+\emph{Entropy} 2014;16:2161--2183.
+
+\bibitem{Mediano2021}
+Mediano PAM, Rosas FE, Luppi AI, Carhart-Harris RL, Bor D, Seth AK,
+Barrett AB.
+Towards an extended taxonomy of information dynamics via Integrated
+Information Decomposition. \emph{arXiv} 2021;2109.13186.
+
+\bibitem{pyinform2018}
+Moore DG, Valentini G, Walker SI, Levin M.
+Inform: efficient information-theoretic analysis of collective
+behaviors. \emph{Front Robot AI} 2018;5:60.
+
+\bibitem{ditpkg}
+James RG, Ellison CJ, Crutchfield JP.
+\texttt{dit}: a Python package for discrete information theory.
+\emph{J Open Source Softw} 2018;3:738.
 
 \bibitem{Marmelat2012}
 Marmelat V, Delign\`eres D.

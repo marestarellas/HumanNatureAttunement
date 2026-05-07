@@ -47,6 +47,10 @@ from HNA.coupling import (
     granger_score,
     fluctuation_matching,
     complexity_coupling,
+    dcca_rho,
+    cross_sample_entropy,
+    transfer_entropy_binned,
+    phi_id,
 )
 from HNA.viz import use_paper_style, save_figure
 
@@ -196,6 +200,83 @@ def m_complexity(x, y, fs):
     return abs(val) if np.isfinite(val) else 0.0
 
 
+def m_te(x, y, fs):
+    """Binned Schreiber transfer entropy, max of both directions (bits).
+
+    Decorrelating downsample to ~2000 samples to keep pyinform fast and
+    avoid penalising heavily oversampled traces.
+    """
+    cap = 2000
+    if len(x) > cap:
+        step = max(1, len(x) // cap)
+        x = x[::step][:cap]
+        y = y[::step][:cap]
+    try:
+        res = transfer_entropy_binned(x, y, history=1, n_bins=6)
+    except Exception:  # noqa: BLE001
+        return 0.0
+    return float(max(res["te_x_to_y"], res["te_y_to_x"]))
+
+
+def m_phi_id_synergy(x, y, fs):
+    """Phi-ID synergy atom (sts): information in joint dynamics only."""
+    cap = 2000
+    if len(x) > cap:
+        step = max(1, len(x) // cap)
+        x = x[::step][:cap]
+        y = y[::step][:cap]
+    try:
+        res = phi_id(x, y, tau=1, kind="gaussian", redundancy="MMI")
+    except Exception:  # noqa: BLE001
+        return 0.0
+    val = res.get("synergy", 0.0)
+    return float(val) if np.isfinite(val) else 0.0
+
+
+def m_phi_id_transfer(x, y, fs):
+    """Phi-ID transfer-to-Y atom group (rty + xty + sty), max of both dirs."""
+    cap = 2000
+    if len(x) > cap:
+        step = max(1, len(x) // cap)
+        x = x[::step][:cap]
+        y = y[::step][:cap]
+    try:
+        res = phi_id(x, y, tau=1, kind="gaussian", redundancy="MMI")
+    except Exception:  # noqa: BLE001
+        return 0.0
+    val = max(res.get("transfer_x_to_y", 0.0),
+              res.get("transfer_y_to_x", 0.0))
+    return float(val) if np.isfinite(val) else 0.0
+
+
+def m_dcca_rho(x, y, fs):
+    """Mean absolute DCCA correlation coefficient over scales."""
+    res = dcca_rho(x, y)
+    rho = res["rho"]
+    valid = np.isfinite(rho)
+    return float(np.nanmean(np.abs(rho[valid]))) if valid.any() else 0.0
+
+
+def m_cross_sampen(x, y, fs):
+    """Cross-sample entropy (lower => more regular joint dynamics).
+
+    Cross-sample-entropy is O(N^2); cap input to 2000 samples so the
+    sensitivity-matrix grid stays interactive. Returned as
+    ``2.5 - cross_sampen`` so larger values consistently indicate
+    stronger coupling, matching the rest of the matrix.
+    """
+    cap = 2000
+    if len(x) > cap:
+        # Decorrelating downsample to ~cap samples
+        step = max(1, len(x) // cap)
+        x = x[::step][:cap]
+        y = y[::step][:cap]
+    cse = cross_sample_entropy(x, y, m=2, r_factor=0.15)
+    if not np.isfinite(cse):
+        return 0.0
+    return float(max(0.0, 2.5 - cse))
+
+
 # Each method now carries TWO axes of the framework: the feature it
 # operates on (or extracts internally) and the coupling-method family it
 # implements. Methods are ordered for the v2 layout: grouped by feature,
@@ -207,6 +288,11 @@ METHODS = [
     ("xcorr peak |r|",   "raw",         "linear",      m_xcorr_lag),
     ("MI",               "raw",         "information", m_mi),
     ("|Granger score|",  "raw",         "information", m_granger),
+    ("TE (binned)",      "raw",         "information", m_te),
+    ("$\\Phi$-ID transfer","raw",       "information", m_phi_id_transfer),
+    ("$\\Phi$-ID synergy","raw",        "information", m_phi_id_synergy),
+    ("DCCA-$\\rho$",     "raw",         "complexity",  m_dcca_rho),
+    ("cross-sampen",     "raw",         "complexity",  m_cross_sampen),
     # oscillatory feature ------------------------------------------
     ("coherence",        "oscillatory", "oscillatory", m_coh),
     ("PLV",              "oscillatory", "oscillatory", m_plv),
@@ -218,9 +304,9 @@ METHODS = [
 # ``fluctuation_matching r`` is intentionally omitted (saturated across
 # broadband signal pairs; see Fig 1 panel D for a within-pair view).
 #
-# Color coding follows the COUPLING axis (3 colours: linear / oscillatory /
-# information). The FEATURE axis is encoded by column grouping + bracket
-# headers, not by colour, to avoid ambiguity.
+# Color coding follows the COUPLING axis (4 colours: linear / oscillatory /
+# information / complexity). The FEATURE axis is encoded by column
+# grouping + bracket headers, not by colour, to avoid ambiguity.
 
 FEATURE_COLORS = {
     "raw":         "#2D3748",   # dark slate
@@ -278,7 +364,7 @@ def plot_matrix(V: np.ndarray, output_path: Path):
     Vn = np.abs(V) / col_max[None, :]
 
     # More vertical room for the bracket header above the column labels.
-    fig, ax = plt.subplots(figsize=(12.0, 6.6))
+    fig, ax = plt.subplots(figsize=(16.5, 6.6))
     fig.subplots_adjust(top=0.78, bottom=0.20, left=0.10, right=0.95)
 
     im = ax.imshow(Vn, aspect="auto", cmap="YlOrRd", vmin=0, vmax=1)
@@ -341,11 +427,11 @@ def plot_matrix(V: np.ndarray, output_path: Path):
     cbar = fig.colorbar(im, ax=ax, fraction=0.025, pad=0.012)
     cbar.set_label("normalised response  (value / column max)", fontsize=10)
 
-    # Legend: COUPLING axis (3 colours, matches the framework's columns).
+    # Legend: COUPLING axis (4 colours, matches the framework's 3 x 4 columns).
     handles = [Patch(facecolor=FAMILY_COLORS[f], edgecolor="none", label=f)
-               for f in ("linear", "oscillatory", "information")]
+               for f in ("linear", "oscillatory", "information", "complexity")]
     ax.legend(handles=handles, loc="upper center",
-              bbox_to_anchor=(0.5, -0.40), ncol=3,
+              bbox_to_anchor=(0.5, -0.40), ncol=4,
               frameon=False, fontsize=10.0,
               title="coupling-method family  (column colour)",
               title_fontsize=9.5)
