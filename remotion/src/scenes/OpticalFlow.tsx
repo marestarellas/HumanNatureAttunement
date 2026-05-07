@@ -3,27 +3,25 @@ import {MethodTitle} from '../components/MethodTitle';
 import {Caption} from '../components/Caption';
 import {ScrollingLine} from '../components/ScrollingLine';
 import {RoseDial} from '../components/RoseDial';
-import {ParticleField} from '../components/ParticleField';
 
 export const OpticalFlow: React.FC = () => {
   return (
     <AbsoluteFill style={{backgroundColor: '#0a0e14'}}>
       <MethodTitle
         title="Optical flow (Farneback)"
-        subtitle="grid of arrows · direction wheel · particles drift with the field"
+        subtitle="grid of arrows · mean direction wheel · magnitude / |curl| over time"
       />
-      {/* Source with a particle field that drifts in the flow direction —
-          gives the audience an immediate "this is the wave moving" feeling. */}
       <div style={{position: 'absolute', top: 170, left: 60, width: 720, height: 720,
                    borderRadius: 14, overflow: 'hidden'}}>
-        <OffthreadVideo src={staticFile('source.mp4')} muted />
-        <ParticleField width={720} height={720} count={120} color="#ffd166" />
+        <OffthreadVideo src={staticFile('source.mp4')} muted
+                        style={{width: '100%', height: '100%', objectFit: 'cover'}} />
       </div>
 
       {/* The actual flow estimate, drawn as discrete arrows on a grid */}
       <div style={{position: 'absolute', top: 170, left: 800, width: 720, height: 720,
                    borderRadius: 14, overflow: 'hidden'}}>
-        <OffthreadVideo src={staticFile('flow_arrows.mp4')} muted />
+        <OffthreadVideo src={staticFile('flow_arrows.mp4')} muted
+                        style={{width: '100%', height: '100%', objectFit: 'cover'}} />
       </div>
 
       {/* Wind-rose dial showing the instantaneous mean direction */}

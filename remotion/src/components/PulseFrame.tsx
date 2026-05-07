@@ -45,7 +45,11 @@ export const PulseFrame: React.FC<Props> = ({
         transition: 'none',
       }}
     >
-      <OffthreadVideo src={staticFile(src)} muted />
+      <OffthreadVideo
+        src={staticFile(src)}
+        muted
+        style={{width: '100%', height: '100%', objectFit: 'cover'}}
+      />
     </div>
   );
 };

@@ -15,7 +15,7 @@ export const SpatialComplexity: React.FC = () => {
           heatmap. Lets the viewer see WHAT each measure is reading. */}
       <div style={{position: 'absolute', top: 165, left: 30, width: 600, height: 600,
                    borderRadius: 12, overflow: 'hidden'}}>
-        <OffthreadVideo src={staticFile('source.mp4')} muted />
+        <OffthreadVideo src={staticFile('source.mp4')} muted style={{width: "100%", height: "100%", objectFit: "cover"}} />
         <div style={{position: 'absolute', top: 12, left: 12, color: '#cfd5dc',
                      fontFamily: 'ui-monospace, monospace', fontSize: 16,
                      background: 'rgba(0,0,0,0.5)', padding: '4px 10px', borderRadius: 6}}>
@@ -24,7 +24,7 @@ export const SpatialComplexity: React.FC = () => {
       </div>
       <div style={{position: 'absolute', top: 165, left: 660, width: 600, height: 600,
                    borderRadius: 12, overflow: 'hidden'}}>
-        <OffthreadVideo src={staticFile('edges.mp4')} muted />
+        <OffthreadVideo src={staticFile('edges.mp4')} muted style={{width: "100%", height: "100%", objectFit: "cover"}} />
         <div style={{position: 'absolute', top: 12, left: 12, color: '#cfd5dc',
                      fontFamily: 'ui-monospace, monospace', fontSize: 16,
                      background: 'rgba(0,0,0,0.5)', padding: '4px 10px', borderRadius: 6}}>
@@ -33,7 +33,7 @@ export const SpatialComplexity: React.FC = () => {
       </div>
       <div style={{position: 'absolute', top: 165, left: 1290, width: 600, height: 600,
                    borderRadius: 12, overflow: 'hidden'}}>
-        <OffthreadVideo src={staticFile('patch_heatmap.mp4')} muted />
+        <OffthreadVideo src={staticFile('patch_heatmap.mp4')} muted style={{width: "100%", height: "100%", objectFit: "cover"}} />
         <div style={{position: 'absolute', top: 12, left: 12, color: '#cfd5dc',
                      fontFamily: 'ui-monospace, monospace', fontSize: 16,
                      background: 'rgba(0,0,0,0.5)', padding: '4px 10px', borderRadius: 6}}>

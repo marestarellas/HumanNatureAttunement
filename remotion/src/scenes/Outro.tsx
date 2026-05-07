@@ -13,7 +13,7 @@ export const Outro: React.FC = () => {
       <div style={{position: 'absolute', top: 180, left: 60, width: 480, height: 480,
                    borderRadius: 14, overflow: 'hidden',
                    boxShadow: '0 8px 32px rgba(0,0,0,0.6)'}}>
-        <OffthreadVideo src={staticFile('source.mp4')} muted />
+        <OffthreadVideo src={staticFile('source.mp4')} muted style={{width: "100%", height: "100%", objectFit: "cover"}} />
       </div>
       <div style={{position: 'absolute', top: 180, left: 580, right: 60,
                    display: 'flex', flexDirection: 'column', gap: 8}}>

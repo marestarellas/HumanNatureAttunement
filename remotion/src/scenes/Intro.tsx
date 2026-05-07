@@ -9,7 +9,7 @@ export const Intro: React.FC = () => {
   return (
     <AbsoluteFill style={{backgroundColor: '#04070b'}}>
       <AbsoluteFill style={{opacity: 0.55}}>
-        <OffthreadVideo src={staticFile('source.mp4')} muted />
+        <OffthreadVideo src={staticFile('source.mp4')} muted style={{width: "100%", height: "100%", objectFit: "cover"}} />
       </AbsoluteFill>
       <AbsoluteFill
         style={{

@@ -30,7 +30,7 @@ export const Timestack: React.FC = () => {
       />
       <div style={{position: 'absolute', top: 170, left: 60, width: 540, height: 540,
                    borderRadius: 14, overflow: 'hidden'}}>
-        <OffthreadVideo src={staticFile('source.mp4')} muted />
+        <OffthreadVideo src={staticFile('source.mp4')} muted style={{width: "100%", height: "100%", objectFit: "cover"}} />
         <div
           style={{
             position: 'absolute',
@@ -49,7 +49,7 @@ export const Timestack: React.FC = () => {
 
       <div style={{position: 'absolute', top: 170, left: 620, width: 540, height: 540,
                    borderRadius: 14, overflow: 'hidden', border: '1px solid #1c2530'}}>
-        <OffthreadVideo src={staticFile('column_sweep.mp4')} muted />
+        <OffthreadVideo src={staticFile('column_sweep.mp4')} muted style={{width: "100%", height: "100%", objectFit: "cover"}} />
         <div style={{position: 'absolute', bottom: 12, left: 12, right: 12, color: '#cfd5dc',
                      fontFamily: 'ui-monospace, monospace', fontSize: 16,
                      background: 'rgba(0,0,0,0.55)', padding: '6px 10px', borderRadius: 6}}>

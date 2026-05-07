@@ -48,8 +48,8 @@ export const ComplexityWindowed: React.FC = () => {
                       m={3} tau={4} />
       </div>
       <div style={{position: 'absolute', top: 430, left: 800, right: 60,
-                   color: '#cfd5dc', fontFamily: 'Inter, system-ui, sans-serif',
-                   fontSize: 22, lineHeight: 1.5, maxWidth: 1000}}>
+                   color: '#eaf1f8', fontFamily: 'Inter, system-ui, sans-serif',
+                   fontSize: 28, lineHeight: 1.4, maxWidth: 1000}}>
         For m = 3 samples there are 3! = 6 possible orderings.
         Permutation entropy = how evenly those 6 patterns are visited inside
         the analysis window. Highly ordered signal → one pattern dominates →
