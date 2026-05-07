@@ -21,7 +21,7 @@ Layout
 
 Output
 ------
-figures/report/Methods2v2_sensitivity_matrix.{png,pdf}
+reports/methods/figures/Methods2v2_sensitivity_matrix.{png,pdf}
 """
 from __future__ import annotations
 
@@ -451,7 +451,7 @@ def parse_args():
     p.add_argument("--dur-s", type=float, default=120.0)
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--out", type=Path,
-                   default=ROOT / "figures" / "report" / "Methods2v2_sensitivity_matrix")
+                   default=ROOT / "reports" / "methods" / "figures" / "Methods2v2_sensitivity_matrix")
     return p.parse_args()
 
 

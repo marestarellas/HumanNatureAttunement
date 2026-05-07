@@ -8,7 +8,7 @@ channel) relative-power values across RS1 and RS2, plus a paired Wilcoxon
 on subject means. Renders a single 2x3 violin grid with the band name as
 each panel's title and a significance bracket from the LMM.
 
-Output: figures/report/Fig2_RS1_vs_RS2_all_bands.{png,pdf}
+Output: reports/preliminary_results/figures/Fig2_RS1_vs_RS2_all_bands.{png,pdf}
 """
 from __future__ import annotations
 import argparse
@@ -228,7 +228,7 @@ def parse_args():
     p.add_argument("--subjects", type=int, nargs="+", default=[2, 3, 4, 5, 6])
     p.add_argument("--data-dir", type=Path, default=ROOT / "data")
     p.add_argument("--out", type=Path,
-                   default=ROOT / "figures" / "report" / "Fig2_RS1_vs_RS2_all_bands")
+                   default=ROOT / "reports" / "preliminary_results" / "figures" / "Fig2_RS1_vs_RS2_all_bands")
     return p.parse_args()
 
 

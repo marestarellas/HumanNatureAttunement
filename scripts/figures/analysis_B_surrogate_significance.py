@@ -8,7 +8,7 @@ envelope by phase-randomization, compute the PLV between respiration and
 each surrogate, and compare the observed PLV to that null distribution.
 
 Outputs:
-  - figures/report/B_surrogate_resp_audio.{png,pdf}
+  - reports/preliminary_results/figures/B_surrogate_resp_audio.{png,pdf}
       A panel-per-condition figure showing each subject's observed PLV
       relative to its own surrogate distribution (z-score + p-value).
   - results/surrogate_tests/resp_audio_plv_surrogates.csv
@@ -158,7 +158,7 @@ def parse_args():
     p.add_argument("--conditions", nargs="+", default=["RS1", "VIZ", "AUD", "MULTI", "RS2"])
     p.add_argument("--n-surrogates", type=int, default=500)
     p.add_argument("--data-dir", type=Path, default=ROOT / "data")
-    p.add_argument("--figures-dir", type=Path, default=ROOT / "figures" / "report")
+    p.add_argument("--figures-dir", type=Path, default=ROOT / "reports" / "preliminary_results" / "figures")
     p.add_argument("--results-dir", type=Path, default=ROOT / "results" / "surrogate_tests")
     return p.parse_args()
 

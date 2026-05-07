@@ -1,8 +1,10 @@
 """
-Render the v2-report framework figure: a 3x3 grid where rows are
+Render the v3-report framework figure: a 3x3 grid where rows are
 spatial-scale tiers (whole-image / per-patch / per-pixel) and columns
 are feature families (raw / oscillatory / complexity). Each cell lists
-the corresponding extractors of `HNA.modules.video`.
+the corresponding extractors of ``HNA.modalities.video``.
+
+Output: ``reports/video_v3/figures/framework.png``
 """
 
 from pathlib import Path
@@ -12,10 +14,9 @@ from matplotlib.patches import FancyBboxPatch
 import matplotlib as mpl
 
 
-OUT = Path(
-    "C:/Users/skite/Documents/Github/HumanNatureAttunement/"
-    ".claude/worktrees/festive-wescoff-3dac92/report/figures/framework.png"
-)
+ROOT = Path(__file__).resolve().parents[2]
+OUT = ROOT / "reports" / "video_v3" / "figures" / "framework.png"
+OUT.parent.mkdir(parents=True, exist_ok=True)
 
 # ---- content of each cell -------------------------------------------------
 # Each entry is (header, bullets, source-file footer).

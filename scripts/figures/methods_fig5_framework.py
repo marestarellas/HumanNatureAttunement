@@ -22,7 +22,7 @@ illuminating identities the figure makes visible:
 
 Output
 ------
-figures/report/Methods5_features_x_coupling.{png,pdf}
+reports/methods/figures/Methods5_features_x_coupling.{png,pdf}
 """
 from __future__ import annotations
 
@@ -284,7 +284,7 @@ def parse_args():
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--out", type=Path,
-                   default=ROOT / "figures" / "report" / "Methods5_features_x_coupling")
+                   default=ROOT / "reports" / "methods" / "figures" / "Methods5_features_x_coupling")
     return p.parse_args()
 
 

@@ -12,7 +12,7 @@ condition, and how much that depends on whether you measure linear
 (xcorr/coh/PLV/wPLI) or non-linear (MI) dependence.
 
 Output:
-    figures/report/F_multi_envelope_heatmap.{png,pdf}
+    reports/preliminary_results/figures/F_multi_envelope_heatmap.{png,pdf}
 """
 from __future__ import annotations
 import argparse
@@ -118,7 +118,7 @@ def parse_args():
     p.add_argument("--metrics", nargs="+",
                    default=["xcorr_peak_r", "coh_band_avg", "plv", "wpli", "mi"])
     p.add_argument("--env-order", nargs="+", default=list(ENV_PRETTY.keys()))
-    p.add_argument("--figures-dir", type=Path, default=ROOT / "figures" / "report")
+    p.add_argument("--figures-dir", type=Path, default=ROOT / "reports" / "preliminary_results" / "figures")
     return p.parse_args()
 
 

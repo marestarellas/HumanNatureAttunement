@@ -260,7 +260,7 @@ def parse_args():
     p.add_argument("--subjects", type=int, nargs="+", default=[2, 3, 4, 5, 6])
     p.add_argument("--conditions", nargs="+", default=["VIZ", "AUD", "MULTI"])
     p.add_argument("--data-dir", type=Path, default=ROOT / "data")
-    p.add_argument("--figures-dir", type=Path, default=ROOT / "figures" / "report")
+    p.add_argument("--figures-dir", type=Path, default=ROOT / "reports" / "preliminary_results" / "figures")
     return p.parse_args()
 
 

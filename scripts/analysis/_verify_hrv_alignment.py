@@ -44,7 +44,7 @@ def parse_args():
     p.add_argument("--data-dir", type=Path, default=ROOT / "data",
                    help=f"Data root (default: {ROOT / 'data'}).")
     p.add_argument("--out", type=Path,
-                   default=ROOT / "figures" / "report" / "ZZ_hrv_alignment_check",
+                   default=ROOT / "reports" / "preliminary_results" / "figures" / "ZZ_hrv_alignment_check",
                    help="Figure output path (without extension).")
     return p.parse_args()
 

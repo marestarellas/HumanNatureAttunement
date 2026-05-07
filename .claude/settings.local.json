@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C /c/Users/skite/Documents/Github/HumanNatureAttunement log --all --oneline -- reports/preliminary_results/report.pdf)"
+    ]
+  }
+}

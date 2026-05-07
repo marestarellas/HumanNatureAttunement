@@ -10,7 +10,7 @@ Layout: rows = HRV features (HF / MeanNN / RMSSD), cols = metrics (PLV, wPLI).
 Each panel is a violin per condition with paired connectors and a Friedman
 + pairwise-Wilcoxon stat overlay (trend marker for p<0.10).
 
-Output: figures/report/Fig5_HRV_audio_metrics_grid.{png,pdf}
+Output: reports/preliminary_results/figures/Fig5_HRV_audio_metrics_grid.{png,pdf}
 
 Usage:
     python scripts/figures/analysis_HRV_Fig5_metrics_grid.py \\
@@ -193,7 +193,7 @@ def parse_args():
                    default=["HRV_HF", "HRV_MeanNN", "HRV_RMSSD"])
     p.add_argument("--data-dir", type=Path, default=ROOT / "data")
     p.add_argument("--out", type=Path,
-                   default=ROOT / "figures" / "report" / "Fig5_HRV_audio_metrics_grid")
+                   default=ROOT / "reports" / "preliminary_results" / "figures" / "Fig5_HRV_audio_metrics_grid")
     return p.parse_args()
 
 

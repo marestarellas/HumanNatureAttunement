@@ -36,13 +36,12 @@ Thumbs.db
 data/
 image_database/
 
-# Generated figures: track ONLY the curated set used by the report.
-# Everything else (per-subject plots, intermediate violins/topomaps) is
-# regenerable from the scripts in scripts/figures/.
+# Generated analysis figures: regenerable from scripts in scripts/figures/.
+# Ignored entirely; the curated report-ready set lives next to its TeX
+# under reports/<report_name>/figures/ and is tracked there. The PDF
+# vector duplicates of those report-ready PNGs are caught by the
+# reports/**/*.pdf rule below.
 figures/*
-!figures/report/
-# Skip vector duplicates of the report figures (PNGs are tracked).
-figures/report/*.pdf
 
 # Compiled LaTeX artefacts (regenerable from .tex via tectonic).
 reports/**/*.pdf

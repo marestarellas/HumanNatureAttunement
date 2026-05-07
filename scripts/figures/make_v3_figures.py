@@ -1,5 +1,5 @@
 """
-Render the figures used by `report/main_v3.tex`.
+Render the figures used by ``reports/video_v3/video_v3.tex``.
 
 The script is self-contained: it runs the analysis pipeline on the
 four example clips, holds the resulting feature dictionaries in
@@ -8,11 +8,11 @@ report.
 
 Inputs
 ------
-Four mp4 clips named `example-01.mp4` ... `example-04.mp4`, by
-default under `video_examples/`. Override with `--video-dir`.
+Four mp4 clips named ``example-01.mp4`` ... ``example-04.mp4``, by
+default under ``video_examples/``. Override with ``--video-dir``.
 
-Outputs (under `report/figures/`)
----------------------------------
+Outputs (under ``reports/video_v3/figures/``)
+---------------------------------------------
 v3_clips_overview.png      reference frame from each clip + 1-line tag
 v3_raw_motion.png          luminance + flow_mag + frame_diff per clip
 v3_multiscale_flow.png     temporal-stride flow per clip (4 panels)
@@ -37,7 +37,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 from HNA.modalities.video import (  # noqa: E402
@@ -45,7 +45,7 @@ from HNA.modalities.video import (  # noqa: E402
     extract_pixel_spectrum, extract_modal, _stack_video,
 )
 
-OUT_DIR = ROOT / "report" / "figures"
+OUT_DIR = ROOT / "reports" / "video_v3" / "figures"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 CLIP_NAMES = ["example-01", "example-02", "example-03", "example-04"]

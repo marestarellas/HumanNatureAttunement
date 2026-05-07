@@ -36,7 +36,7 @@ raw value is annotated on each bar).
 
 Output
 ------
-figures/report/Methods3_coupling_cases.{png,pdf}
+reports/methods/figures/Methods3_coupling_cases.{png,pdf}
 """
 from __future__ import annotations
 
@@ -389,7 +389,7 @@ def parse_args():
                    help="Time-series preview length in seconds.")
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--out", type=Path,
-                   default=ROOT / "figures" / "report" / "Methods3_coupling_cases")
+                   default=ROOT / "reports" / "methods" / "figures" / "Methods3_coupling_cases")
     return p.parse_args()
 
 

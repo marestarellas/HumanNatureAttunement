@@ -27,7 +27,7 @@ In each polar panel below:
 - Black arrow = group mean resultant; its length is the group-level R.
 
 Output:
-  - figures/report/E_phase_polar.{png,pdf}
+  - reports/preliminary_results/figures/E_phase_polar.{png,pdf}
   - results/phase_polar/phase_per_subject.csv
 
 Usage:
@@ -229,7 +229,7 @@ def parse_args():
     p.add_argument("--subjects", type=int, nargs="+", default=[2, 3, 4, 5, 6])
     p.add_argument("--conditions", nargs="+", default=["VIZ", "AUD", "MULTI"])
     p.add_argument("--data-dir", type=Path, default=ROOT / "data")
-    p.add_argument("--figures-dir", type=Path, default=ROOT / "figures" / "report")
+    p.add_argument("--figures-dir", type=Path, default=ROOT / "reports" / "preliminary_results" / "figures")
     p.add_argument("--results-dir", type=Path, default=ROOT / "results" / "phase_polar")
     return p.parse_args()
 

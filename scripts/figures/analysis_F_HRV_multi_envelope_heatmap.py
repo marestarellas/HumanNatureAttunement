@@ -9,7 +9,7 @@ figure per HRV feature (rows = audio bands, cols = conditions) for each
 of the 5 coupling methods.
 
 Output:
-    figures/report/F_HRV_multi_envelope_heatmap_<HRV_feature>.{png,pdf}
+    reports/preliminary_results/figures/F_HRV_multi_envelope_heatmap_<HRV_feature>.{png,pdf}
 """
 from __future__ import annotations
 import argparse
@@ -132,7 +132,7 @@ def parse_args():
     p.add_argument("--env-order", nargs="+", default=list(ENV_PRETTY.keys()))
     p.add_argument("--hrv-features", nargs="+", default=None,
                    help="Default: every HRV feature found in the CSV.")
-    p.add_argument("--figures-dir", type=Path, default=ROOT / "figures" / "report")
+    p.add_argument("--figures-dir", type=Path, default=ROOT / "reports" / "preliminary_results" / "figures")
     return p.parse_args()
 
 

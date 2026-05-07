@@ -27,7 +27,7 @@ Row 2 -- Information coupling
 
 Output
 ------
-figures/report/Methods7_complexity_info_families.{png,pdf}
+reports/methods/figures/Methods7_complexity_info_families.{png,pdf}
 """
 from __future__ import annotations
 
@@ -400,7 +400,7 @@ def parse_args():
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--out", type=Path,
-                   default=ROOT / "figures" / "report" / "Methods7_complexity_info_families")
+                   default=ROOT / "reports" / "methods" / "figures" / "Methods7_complexity_info_families")
     return p.parse_args()
 
 

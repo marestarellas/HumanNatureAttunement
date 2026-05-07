@@ -25,11 +25,15 @@ HumanNatureAttunement/
 │   ├── features/           modality-agnostic feature extraction (PSD, entropy, fractal, FOOOF)
 │   │   ├── psd.py / entropy.py / fractal.py / aperiodic.py
 │   │   └── windowed.py     generic windowed_channel_features iterator
-│   ├── modalities/         per-signal cleaners only
+│   ├── modalities/         per-signal cleaners + extractors
 │   │   ├── audio.py        decompose_envelope into 12 bands
 │   │   ├── eeg.py          filter_eeg (multi-channel Butterworth)
 │   │   ├── respiration.py  clean_respiration (0.05-1 Hz BP + z-score)
-│   │   └── ecg.py          ECG cleaning + R-peaks + windowed HRV + HRV<->audio resampling
+│   │   ├── ecg.py          ECG cleaning + R-peaks + windowed HRV + HRV<->audio resampling
+│   │   └── video/          spatial-scale x feature-family extractors
+│   │                        (whole_image, per_patch, per_pixel, modal/DMD,
+│   │                         spatial_fft, temporal_complexity, timestack,
+│   │                         pipeline.quantify_video)
 │   ├── surrogates.py       phase-shuffle / time-shift surrogates + generic test harness
 │   ├── stats.py            Fisher z, BH-FDR, Friedman+post-hoc, Rayleigh, slope tests, cluster permutation
 │   ├── viz/                plotting subpackage: style + sig helpers + forest/polar/spectrum/topomap helpers
@@ -47,7 +51,8 @@ HumanNatureAttunement/
 │   └── figures/            analysis_A_spectrum_overlay, analysis_B_surrogate_significance,
 │                           analysis_C_time_resolved_coupling, analysis_D_cross_modal_coupling,
 │                           analysis_E_phase_polar, analysis_F_*, analysis_RS1_vs_RS2_grid,
-│                           analysis_features_grid, analysis_nature_vs_rest, …
+│                           analysis_features_grid, analysis_nature_vs_rest,
+│                           methods_fig{1..7}_*, make_v3_figures, make_framework_figure
 │
 ├── config/
 │   └── subjects.json       per-subject metadata: condition order, audio sync,
@@ -63,12 +68,13 @@ HumanNatureAttunement/
 │       ├── audio/          per-condition WAVs + envelope CSV
 │       └── ecg_processed/  cleaned ECG + R-peaks per condition
 │
-├── reports/preliminary_results/
-│   └── report.tex          LaTeX preliminary-results report (compiles with tectonic)
+├── reports/                each report is self-contained (TeX + tracked figures)
+│   ├── methods/            methods.tex + figures/Methods*.{png,pdf}
+│   ├── preliminary_results/  report.tex + figures/Fig*.png + Fig_*.png + …
+│   └── video_v3/           video_v3.tex + figures/v3_*.png, framework.png
 │
-├── results/                intermediate stats CSVs
-└── figures/                figure outputs
-    └── report/             curated paper-ready set (tracked); rest is regenerable & gitignored
+├── results/                intermediate stats CSVs (gitignored beyond curated subset)
+└── figures/                regenerable analysis-output figures (gitignored entirely)
 ```
 
 ## What's in the toolbox
@@ -102,7 +108,7 @@ give a visual entry point to the coupling framework.
 
 ### Fig 1 — The features × coupling design space
 
-![Framework matrix](figures/report/Methods5_features_x_coupling.png)
+![Framework matrix](reports/methods/figures/Methods5_features_x_coupling.png)
 
 A 3 × 4 grid: feature rows (raw signal / oscillatory features /
 complexity features) crossed with coupling-method columns (linear /
@@ -115,7 +121,7 @@ features.
 
 ### Fig 2 — Each coupling family on the same synthetic pair
 
-![Coupling families on one pair](figures/report/Methods1_coupling_families.png)
+![Coupling families on one pair](reports/methods/figures/Methods1_coupling_families.png)
 
 A constructed audio-vs-respiration pair coupled at 0.20 Hz with a 0.5 s
 phase lag, viewed through one canonical estimator per family:
@@ -124,7 +130,7 @@ cross-correlation (linear), PLV (oscillatory), MI / Pearson scatter
 
 ### Fig 3 — Five clear coupling scenarios
 
-![Five coupling scenarios](figures/report/Methods3_coupling_cases.png)
+![Five coupling scenarios](reports/methods/figures/Methods3_coupling_cases.png)
 
 Five synthetic signal pairs, each constructed to exemplify a single
 coupling structure (linear, $90^\circ$ phase-locked, cross-frequency
@@ -227,10 +233,10 @@ PYTHONPATH=src python scripts/figures/methods_fig4_cases_with_psd.py
 
 | Figure | Purpose |
 |---|---|
-| `figures/report/Methods1_coupling_families.{png,pdf}` | One synthetic audio-vs-respiration pair shown four ways — one canonical estimator from each family (xcorr, PLV, MI, fluctuation matching). All four panels fire on the same coupling. |
-| `figures/report/Methods2_sensitivity_matrix.{png,pdf}` | Heatmap of nine methods × six signal-pair types with known coupling structure. Column-normalized raw metric values; the diagonal pattern shows which method peaks on which kind of coupling. |
-| `figures/report/Methods3_coupling_cases.{png,pdf}` | Five coupling scenarios (linear, phase-only, PAC, nonlinear, complexity-matched) shown side-by-side with each method's response — demonstrates that no single metric is "best", and that different families pick up different structures. |
-| `figures/report/Methods4_cases_with_psd.{png,pdf}` | Same five cases as Fig 3 but with an extra Welch PSD + FOOOF aperiodic / peak panel per row. Surfaces the *spectral signature* of each coupling type — particularly informative for complexity matching, where the only similarity between signals is their 1/f exponent. |
+| `reports/methods/figures/Methods1_coupling_families.{png,pdf}` | One synthetic audio-vs-respiration pair shown four ways — one canonical estimator from each family (xcorr, PLV, MI, fluctuation matching). All four panels fire on the same coupling. |
+| `reports/methods/figures/Methods2_sensitivity_matrix.{png,pdf}` | Heatmap of nine methods × six signal-pair types with known coupling structure. Column-normalized raw metric values; the diagonal pattern shows which method peaks on which kind of coupling. |
+| `reports/methods/figures/Methods3_coupling_cases.{png,pdf}` | Five coupling scenarios (linear, phase-only, PAC, nonlinear, complexity-matched) shown side-by-side with each method's response — demonstrates that no single metric is "best", and that different families pick up different structures. |
+| `reports/methods/figures/Methods4_cases_with_psd.{png,pdf}` | Same five cases as Fig 3 but with an extra Welch PSD + FOOOF aperiodic / peak panel per row. Surfaces the *spectral signature* of each coupling type — particularly informative for complexity matching, where the only similarity between signals is their 1/f exponent. |
 
 ## Building the preliminary report
 

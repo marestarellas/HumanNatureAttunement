@@ -165,8 +165,9 @@ Always start figure scripts with::
 4. **Outputs go in three places**:
    - Per-subject artifacts → `data/processed/sub-XX/...`
    - Group/intermediate results → `<repo>/results/<topic>/`
-   - Figures → `<repo>/figures/<topic>/`  (with `<repo>/figures/report/`
-     reserved for publication-ready ones).
+   - Regenerable analysis figures → `<repo>/figures/<topic>/` (gitignored).
+   - Publication-ready figures → `<repo>/reports/<report_name>/figures/`
+     (tracked, lives next to the `*.tex` that uses them).
 
 ## Datasets
 

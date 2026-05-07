@@ -13,7 +13,7 @@ which would be the signature of an entrainment process — or stays flat
 (suggesting any coupling that exists is steady, not engaged by stimulus).
 
 Outputs:
-  - figures/report/C_time_resolved_resp_audio.{png,pdf}
+  - reports/preliminary_results/figures/C_time_resolved_resp_audio.{png,pdf}
 
 Usage:
     python scripts/figures/analysis_C_time_resolved_coupling.py \\
@@ -266,7 +266,7 @@ def parse_args():
     p.add_argument("--n-grid", type=int, default=30,
                    help="Number of bins on the normalized time axis (default: 30)")
     p.add_argument("--data-dir", type=Path, default=ROOT / "data")
-    p.add_argument("--figures-dir", type=Path, default=ROOT / "figures" / "report")
+    p.add_argument("--figures-dir", type=Path, default=ROOT / "reports" / "preliminary_results" / "figures")
     return p.parse_args()
 
 

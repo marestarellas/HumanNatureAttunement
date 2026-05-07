@@ -15,7 +15,7 @@ Pulls three coupling metrics per (subject, condition):
     (from results/audio_eeg_correlation/audio_eeg_correlation_results.csv)
 
 Outputs:
-  - figures/report/D_cross_modal_coupling.{png,pdf}
+  - reports/preliminary_results/figures/D_cross_modal_coupling.{png,pdf}
       A 4-panel figure: 3 pairwise scatters + a 3x3 Spearman rho heatmap.
   - results/cross_modal/cross_modal_long.csv : long table of (subject, cond, modality, value).
 
@@ -175,7 +175,7 @@ def parse_args():
     p.add_argument("--eeg-band", default="alpha")
     p.add_argument("--data-dir", type=Path, default=ROOT / "data")
     p.add_argument("--results-dir", type=Path, default=ROOT / "results")
-    p.add_argument("--figures-dir", type=Path, default=ROOT / "figures" / "report")
+    p.add_argument("--figures-dir", type=Path, default=ROOT / "reports" / "preliminary_results" / "figures")
     p.add_argument("--cross-modal-dir", type=Path, default=ROOT / "results" / "cross_modal")
     return p.parse_args()
 

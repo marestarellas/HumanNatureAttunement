@@ -15,7 +15,7 @@ B) Window-level mixed model:  metric ~ block + (1|subject)
 C) Per-subject Delta = mean(NATURE) - mean(REST), forest plot
 
 Outputs:
-  figures/report/Fig_nature_vs_rest_<modality>.{png,pdf}
+  reports/preliminary_results/figures/Fig_nature_vs_rest_<modality>.{png,pdf}
   results/nature_vs_rest/nature_vs_rest_stats.csv
 
 Usage:
@@ -420,7 +420,7 @@ def parse_args():
                    choices=["resp", "hrv_meannn", "hrv_meannn_swell_0p1"])
     p.add_argument("--data-dir", type=Path, default=ROOT / "data")
     p.add_argument("--report-dir", type=Path,
-                   default=ROOT / "figures" / "report")
+                   default=ROOT / "reports" / "preliminary_results" / "figures")
     p.add_argument("--results-dir", type=Path,
                    default=ROOT / "results" / "nature_vs_rest")
     return p.parse_args()

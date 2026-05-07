@@ -19,7 +19,7 @@ similarity that complexity matching turns into a coupling score.
 
 Output
 ------
-figures/report/Methods4_cases_with_psd.{png,pdf}
+reports/methods/figures/Methods4_cases_with_psd.{png,pdf}
 """
 from __future__ import annotations
 
@@ -399,7 +399,7 @@ def parse_args():
     p.add_argument("--preview-s", type=float, default=15.0)
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--out", type=Path,
-                   default=ROOT / "figures" / "report" / "Methods4_cases_with_psd")
+                   default=ROOT / "reports" / "methods" / "figures" / "Methods4_cases_with_psd")
     return p.parse_args()
 
 

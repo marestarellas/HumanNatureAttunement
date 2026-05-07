@@ -15,7 +15,7 @@ Default cell: subject 02, MULTI condition. Override with --subject /
 
 Output
 ------
-figures/report/Methods6v2_worked_example.{png,pdf}
+reports/methods/figures/Methods6v2_worked_example.{png,pdf}
 """
 from __future__ import annotations
 
@@ -285,7 +285,7 @@ def parse_args():
                    help="Pilot data root (default: <repo>/data, falling back "
                         "to its sibling outside the worktree).")
     p.add_argument("--out", type=Path,
-                   default=ROOT / "figures" / "report" / "Methods6v2_worked_example")
+                   default=ROOT / "reports" / "methods" / "figures" / "Methods6v2_worked_example")
     return p.parse_args()
 
 

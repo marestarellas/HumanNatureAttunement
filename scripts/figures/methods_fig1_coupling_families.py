@@ -15,7 +15,7 @@ coupling families:
 
 Output
 ------
-figures/report/Methods1_coupling_families.{png,pdf}
+reports/methods/figures/Methods1_coupling_families.{png,pdf}
 
 Usage
 -----
@@ -260,7 +260,7 @@ def parse_args():
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--out", type=Path,
-                   default=ROOT / "figures" / "report" / "Methods1_coupling_families")
+                   default=ROOT / "reports" / "methods" / "figures" / "Methods1_coupling_families")
     p.add_argument("--fs", type=float, default=256.0)
     p.add_argument("--dur-s", type=float, default=90.0)
     p.add_argument("--lag-s", type=float, default=0.5)
