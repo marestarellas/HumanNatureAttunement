@@ -140,10 +140,10 @@ video frames feed into `HNA.modules.video` to produce 1-D feature
 traces that plug into the same coupling / surrogate / stats / viz
 infrastructure used for audio, EEG, ECG, and respiration.
 
-<video src="https://github.com/marestarellas/HumanNatureAttunement/releases/download/media-v1/showcase_compare-01_web.mp4" controls width="100%"></video>
+https://github.com/user-attachments/assets/a34a3a87-b420-4da9-9430-ad9d099fa613
 
-[Download / open the clip directly](https://github.com/marestarellas/HumanNatureAttunement/releases/download/media-v1/showcase_compare-01_web.mp4)
-if your viewer does not embed inline video.
+Full-quality download (75 MB):
+[showcase_compare-01_web.mp4](https://github.com/marestarellas/HumanNatureAttunement/releases/download/media-v1/showcase_compare-01_web.mp4).
 
 ## Pipeline at a glance
 
