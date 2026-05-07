@@ -24,6 +24,16 @@ info = [
   "pyinform>=0.2",   # Schreiber transfer entropy (binned)
   "dit>=1.5",        # Williams-Beer / BROJA partial information decomposition
 ]
+# Video modality (HNA.modalities.video). All deps are optional; missing
+# antropy / neurokit2 / pydmd gracefully degrade to NaN where the
+# corresponding measure is unavailable.
+video = [
+  "opencv-python>=4.6",
+  "scipy>=1.10",
+  "antropy>=0.1.4",     # permutation / sample / spectral entropy, fractal dims
+  "neurokit2>=0.2",     # DFA, Hurst, Lempel--Ziv, multiscale entropy
+  "pydmd>=0.4",         # Dynamic Mode Decomposition (modal extractor)
+]
 
 [tool.setuptools.packages.find]
 where = ["src"]
