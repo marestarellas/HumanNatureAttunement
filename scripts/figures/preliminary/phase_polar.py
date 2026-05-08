@@ -27,11 +27,11 @@ In each polar panel below:
 - Black arrow = group mean resultant; its length is the group-level R.
 
 Output:
-  - reports/preliminary_results/figures/E_phase_polar.{png,pdf}
+  - reports/preliminary_results/figures/phase_polar.{png,pdf}
   - results/phase_polar/phase_per_subject.csv
 
 Usage:
-    python scripts/figures/analysis_E_phase_polar.py --subjects 2 3 4 5 6
+    python scripts/figures/analysis_phase_polar.py --subjects 2 3 4 5 6
 """
 from __future__ import annotations
 import argparse
@@ -219,7 +219,7 @@ def plot(by_cond, conditions, output_dir: Path):
                fontsize=8.5, frameon=False)
 
     fig.tight_layout(rect=[0.02, 0.05, 0.98, 0.93])
-    saved = save_figure(fig, output_dir / "E_phase_polar")
+    saved = save_figure(fig, output_dir / "phase_polar")
     plt.close(fig)
     print(f"  Saved: {saved[0].name} (+ pdf)")
 

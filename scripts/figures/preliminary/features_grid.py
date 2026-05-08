@@ -17,7 +17,7 @@ Inputs:
   data/processed/sub-XX/tables/hrv_features_<COND>.csv      (HRV features)
 
 Output:
-  reports/preliminary_results/figures/Fig_features_grid.{png,pdf}
+  reports/preliminary_results/figures/features_grid.{png,pdf}
 
 Usage:
     python scripts/figures/analysis_features_grid.py \\
@@ -220,7 +220,7 @@ def parse_args():
     p.add_argument("--conditions", nargs="+", default=["VIZ", "AUD", "MULTI"])
     p.add_argument("--data-dir", type=Path, default=ROOT / "data")
     p.add_argument("--out", type=Path,
-                   default=ROOT / "reports" / "preliminary_results" / "figures" / "Fig_features_grid")
+                   default=ROOT / "reports" / "preliminary_results" / "figures" / "features_grid")
     return p.parse_args()
 
 

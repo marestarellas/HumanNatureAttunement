@@ -12,7 +12,7 @@ Per (subject, condition):
   - Report z = (observed - null mean) / null std and one-sided p.
 
 Output:
-    reports/preliminary_results/diagnostics/Fig_surrogate_hrv_audio_oscillatory.{png,pdf}
+    reports/preliminary_results/diagnostics/surrogate_hrv_audio_oscillatory.{png,pdf}
     results/surrogate_hrv_audio/surrogate_hrv_audio.csv
 
 The figure is two stacked rows:
@@ -260,7 +260,7 @@ def parse_args():
     p.add_argument("--n-surrogates", type=int, default=N_SURROGATES)
     p.add_argument("--out", type=Path,
                    default=ROOT / "reports" / "preliminary_results" / "figures"
-                                / "Fig_surrogate_hrv_audio_oscillatory")
+                                / "surrogate_hrv_audio_oscillatory")
     p.add_argument("--results-dir", type=Path,
                    default=ROOT / "results" / "surrogate_hrv_audio")
     return p.parse_args()

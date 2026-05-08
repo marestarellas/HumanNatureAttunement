@@ -15,12 +15,12 @@ Pulls three coupling metrics per (subject, condition):
     (from results/audio_eeg_correlation/audio_eeg_correlation_results.csv)
 
 Outputs:
-  - reports/preliminary_results/figures/D_cross_modal_coupling.{png,pdf}
+  - reports/preliminary_results/figures/cross_modal_coupling.{png,pdf}
       A 4-panel figure: 3 pairwise scatters + a 3x3 Spearman rho heatmap.
   - results/cross_modal/cross_modal_long.csv : long table of (subject, cond, modality, value).
 
 Usage:
-    python scripts/figures/analysis_D_cross_modal_coupling.py \\
+    python scripts/figures/analysis_cross_modal_coupling.py \\
         --subjects 2 3 4 5 6
 """
 from __future__ import annotations
@@ -162,7 +162,7 @@ def plot_cross_modal(df: pd.DataFrame, conditions, output_dir: Path,
     fig.suptitle("Cross-modal audio coupling: is attunement a unitary state?",
                  fontsize=12.5, fontweight="bold", y=1.0)
     fig.tight_layout(rect=[0, 0, 1, 0.97])
-    saved = save_figure(fig, output_dir / "D_cross_modal_coupling")
+    saved = save_figure(fig, output_dir / "cross_modal_coupling")
     plt.close(fig)
     print(f"  Saved: {saved[0].name} (+ pdf)")
 

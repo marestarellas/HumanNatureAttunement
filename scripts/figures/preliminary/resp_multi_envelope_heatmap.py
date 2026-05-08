@@ -12,7 +12,7 @@ condition, and how much that depends on whether you measure linear
 (xcorr/coh/PLV/wPLI) or non-linear (MI) dependence.
 
 Output:
-    reports/preliminary_results/figures/F_multi_envelope_heatmap.{png,pdf}
+    reports/preliminary_results/figures/resp_multi_envelope_heatmap.{png,pdf}
 """
 from __future__ import annotations
 import argparse
@@ -105,7 +105,7 @@ def make_heatmap(df: pd.DataFrame, conditions, env_order, metrics, output_dir: P
 
     # Title removed (in caption).
     fig.tight_layout(rect=[0, 0, 1, 0.96])
-    saved = save_figure(fig, output_dir / "F_multi_envelope_heatmap")
+    saved = save_figure(fig, output_dir / "resp_multi_envelope_heatmap")
     plt.close(fig)
     print(f"  Saved: {saved[0].name} (+ pdf)")
 

@@ -13,7 +13,7 @@ This shows what slow rhythms exist in the audio and where physiology has
 natural peaks - a prerequisite for any entrainment claim.
 
 Usage:
-    python scripts/figures/analysis_A_spectrum_overlay.py \\
+    python scripts/figures/analysis_spectrum_overlay.py \\
         --subjects 2 3 4 5 6 \\
         --data-dir /path/to/data
 """
@@ -249,7 +249,7 @@ def plot_spectrum_overlay(per_subj_psd, conditions: list[str], grid: np.ndarray,
     cond_label = "+".join(conditions)
     # Title removed (in caption).
     fig.tight_layout()
-    saved = save_figure(fig, output_dir / "A_spectrum_overlay")
+    saved = save_figure(fig, output_dir / "spectrum_overlay")
     plt.close(fig)
     print(f"  Saved: {saved[0].name} (+ pdf)")
 

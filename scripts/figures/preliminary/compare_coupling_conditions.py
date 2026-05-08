@@ -548,7 +548,7 @@ def main():
         report_metrics = [m for m in ("plv", "wpli", "coh_band_avg")
                           if m in df_summary.columns]
         plot_metrics_grid(df_summary, report_metrics, stats_by_metric,
-                          args.report_dir / "Fig5_resp_audio_metrics_grid")
+                          args.report_dir / "resp_audio_metrics_grid")
     
     # ===== SUMMARY STATISTICS TABLE =====
     print("\n" + "="*80)

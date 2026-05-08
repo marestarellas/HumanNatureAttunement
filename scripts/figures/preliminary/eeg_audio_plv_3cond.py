@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-EEG-audio band-matched wPLI across the three multisensory conditions:
+EEG-audio band-matched PLV across the three multisensory conditions:
 6 bands x 3 violins per band. Stats inset come from the LMM results.
+
+Reuses the layout from
+``scripts/figures/preliminary/eeg_audio_correlation_3cond.py``.
 """
 from __future__ import annotations
 import argparse
@@ -14,8 +17,9 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "src"))
 
+# Import the shared layout
 sys.path.insert(0, str(Path(__file__).parent))
-from Fig15_eeg_audio_correlation_3cond import plot_grid, CONDITIONS  # noqa: E402
+from eeg_audio_correlation_3cond import plot_grid, CONDITIONS  # noqa: E402
 
 
 def parse_args():
@@ -28,7 +32,7 @@ def parse_args():
                                 / "eeg_audio_phase_coupling_stats.csv")
     p.add_argument("--out", type=Path,
                    default=ROOT / "reports" / "preliminary_results" / "figures"
-                                / "Fig19_eeg_audio_wpli_3cond")
+                                / "eeg_audio_plv_3cond")
     return p.parse_args()
 
 
@@ -38,14 +42,14 @@ def main():
     df = pd.read_csv(args.phase_csv)
     df = df[df["condition"].isin(CONDITIONS)]
     per_sub = (df.groupby(["subject_id", "condition", "band"], as_index=False)
-                  ["wpli"].mean())
+                  ["plv"].mean())
     stats = pd.DataFrame()
     if args.stats_csv.exists():
         sd = pd.read_csv(args.stats_csv)
-        stats = sd[sd["metric"] == "wpli"]
+        stats = sd[sd["metric"] == "plv"]
     plot_grid(per_sub, stats,
-                value_col="wpli",
-                value_label="wPLI (mean across 32 channels)",
+                value_col="plv",
+                value_label="PLV (mean across 32 channels)",
                 output_path=args.out)
 
 

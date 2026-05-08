@@ -15,7 +15,7 @@ B) Window-level mixed model:  metric ~ block + (1|subject)
 C) Per-subject Delta = mean(NATURE) - mean(REST), forest plot
 
 Outputs:
-  reports/preliminary_results/figures/Fig_nature_vs_rest_<modality>.{png,pdf}
+  reports/preliminary_results/figures/nature_vs_rest_<modality>.{png,pdf}
   results/nature_vs_rest/nature_vs_rest_stats.csv
 
 Usage:
@@ -530,17 +530,17 @@ def main():
         if mod == "resp":
             sca, win = collect(args.subjects, "resp", args.data_dir)
             title = "Respiration ↔ audio swell"
-            out = args.report_dir / "Fig_nature_vs_rest_resp"
+            out = args.report_dir / "nature_vs_rest_resp"
         elif mod == "hrv_meannn":
             sca, win = collect(args.subjects, "hrv", args.data_dir,
                                hrv_feature="HRV_MeanNN")
             title = "HRV-MeanNN ↔ env_swell_0p2"
-            out = args.report_dir / "Fig_nature_vs_rest_hrv_meannn"
+            out = args.report_dir / "nature_vs_rest_hrv_meannn"
         elif mod == "hrv_meannn_swell_0p1":
             sca, win = collect_hrv_envelope(args.subjects, "env_swell_0p1",
                                              args.data_dir, hrv_feature="HRV_MeanNN")
             title = "HRV-MeanNN ↔ env_swell_0p1"
-            out = args.report_dir / "Fig_nature_vs_rest_hrv_meannn_swell_0p1"
+            out = args.report_dir / "nature_vs_rest_hrv_meannn_swell_0p1"
         else:
             continue
         if sca.empty:

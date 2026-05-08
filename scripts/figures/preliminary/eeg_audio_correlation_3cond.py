@@ -149,7 +149,7 @@ def parse_args():
                                 / "eeg_audio_phase_coupling_stats.csv")
     p.add_argument("--out", type=Path,
                    default=ROOT / "reports" / "preliminary_results" / "figures"
-                                / "Fig15_eeg_audio_correlation_3cond")
+                                / "eeg_audio_correlation_3cond")
     return p.parse_args()
 
 

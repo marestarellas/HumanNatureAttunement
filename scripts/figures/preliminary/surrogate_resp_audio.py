@@ -9,7 +9,7 @@ respiration (256 Hz) and the audio swell envelope ``env_swell_0p2``
 ``surrogate_hrv_audio.py``.
 
 Output:
-    reports/preliminary_results/diagnostics/Fig_surrogate_resp_audio_oscillatory.{png,pdf}
+    reports/preliminary_results/diagnostics/surrogate_resp_audio_oscillatory.{png,pdf}
     results/surrogate_resp_audio/surrogate_resp_audio.csv
 
 Diagnostic; not in the report unless added after inspection.
@@ -209,7 +209,7 @@ def parse_args():
     p.add_argument("--n-surrogates", type=int, default=N_SURROGATES)
     p.add_argument("--out", type=Path,
                    default=ROOT / "reports" / "preliminary_results" / "figures"
-                                / "Fig_surrogate_resp_audio_oscillatory")
+                                / "surrogate_resp_audio_oscillatory")
     p.add_argument("--results-dir", type=Path,
                    default=ROOT / "results" / "surrogate_resp_audio")
     return p.parse_args()

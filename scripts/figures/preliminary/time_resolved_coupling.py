@@ -13,10 +13,10 @@ which would be the signature of an entrainment process — or stays flat
 (suggesting any coupling that exists is steady, not engaged by stimulus).
 
 Outputs:
-  - reports/preliminary_results/figures/C_time_resolved_resp_audio.{png,pdf}
+  - reports/preliminary_results/figures/time_resolved_resp_audio.{png,pdf}
 
 Usage:
-    python scripts/figures/analysis_C_time_resolved_coupling.py \\
+    python scripts/figures/time_resolved_coupling.py \\
         --subjects 2 3 4 5 6 --metric wpli
 """
 from __future__ import annotations
@@ -253,7 +253,7 @@ def plot(by_cond, conditions, metric, output_dir: Path,
                 level += 0.10 * yspan
 
     fig.tight_layout()
-    saved = save_figure(fig, output_dir / f"C_time_resolved_resp_audio_{metric}")
+    saved = save_figure(fig, output_dir / f"time_resolved_resp_audio_{metric}")
     plt.close(fig)
     print(f"  Saved: {saved[0].name} (+ pdf)")
 

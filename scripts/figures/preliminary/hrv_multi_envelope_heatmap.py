@@ -19,8 +19,8 @@ B) **Oscillatory** (PLV, wPLI, band-avg coherence): a single figure
    misleading.
 
 Outputs (under ``reports/preliminary_results/figures/``):
-    F_HRV_slow_trend_<feat>.{png,pdf}      one per HRV feature
-    F_HR_oscillatory.{png,pdf}             one figure
+    hrv_slow_trend_<feat>.{png,pdf}      one per HRV feature
+    hr_oscillatory.{png,pdf}             one figure
 """
 from __future__ import annotations
 import argparse
@@ -143,7 +143,7 @@ def make_slow_trend(df, hrv_feature, conditions, env_order, output_dir):
 
     fig.tight_layout(rect=[0, 0, 1, 0.96])
     saved = save_figure(
-        fig, output_dir / f"F_HRV_slow_trend_{hrv_feature}"
+        fig, output_dir / f"hrv_slow_trend_{hrv_feature}"
     )
     plt.close(fig)
     print(f"  Saved: {saved[0].name} (+ pdf)")
@@ -181,7 +181,7 @@ def make_oscillatory(df, conditions, env_order, output_dir):
                              fraction=0.06, pad=0.08, shrink=0.85)
         cbar.ax.tick_params(labelsize=8)
     fig.tight_layout(rect=[0, 0, 1, 0.96])
-    saved = save_figure(fig, output_dir / "F_HR_oscillatory")
+    saved = save_figure(fig, output_dir / "hr_oscillatory")
     plt.close(fig)
     print(f"  Saved: {saved[0].name} (+ pdf)")
     return saved
