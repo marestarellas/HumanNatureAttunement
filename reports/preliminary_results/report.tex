@@ -574,64 +574,92 @@ sliding window. Audio-only listening shows a positive build-up slope
 \label{fig:C_coh}
 \end{figure}
 
-\subsection{EEG--audio band-matched correlation}
+\subsection{EEG--audio band-matched coupling}
 
-For each EEG band we band-pass-filter the audio envelope and the EEG to
-the same band, then compute per-channel Pearson correlations. Linear
-mixed-effects per channel + FDR across the 32 channels per band reveal
-band-specific differences between conditions
-(Figure~\ref{fig:Fig4_VA}, \ref{fig:Fig4_VM}, \ref{fig:Fig4_AM}). The
-strongest contrasts are in delta (\textsc{viz} vs.\ \textsc{aud}: 30/32
-channels FDR $<\!.05$, $*$), alpha (\textsc{viz} vs.\ \textsc{aud}:
-32/32, $***$), and high-beta (11/32, $*$). Pairs of conditions involving
-\textsc{multi} also engage theta (23/32 channels for \textsc{viz} vs.\
-\textsc{multi}).
+For each EEG band we band-pass-filter the audio amplitude envelope and
+the EEG to the same band (delta 0.5--4, theta 4--8, alpha 8--13,
+low-beta 13--20, high-beta 20--30, gamma$_1$ 30--50\,Hz), then compute
+three coupling metrics on the band-matched pair:
+\textbf{(a) Pearson correlation $r$} (the existing band-matched
+metric, sample-by-sample), \textbf{(b) phase-locking value (PLV)}, and
+\textbf{(c) weighted phase-lag index (wPLI)}. The latter two are
+computed via narrowband-Hilbert phase extraction in the same band
+(\texttt{plv\_phase\_sync} / \texttt{wpli\_phase\_sync} with
+$f_0 =$ band centre, $\Delta f$ = band width). The three metrics ask
+slightly different questions: the correlation captures sign-aligned
+co-variation including amplitude; PLV captures phase locking
+amplitude-blind; wPLI is amplitude-blind \emph{and} suppresses
+volume-conduction-like zero-lag artefacts.
+
+\paragraph{Statistical inference (LMM with crossed random effects).}
+Per (band, metric) we fit a linear mixed-effects model
+\texttt{value $\sim$ C(condition, ref="VIZ") + (1|subject) +
+(1|channel)} with REML, on the n=5 subjects $\times$ 32 channels
+$\times$ 3 conditions = 480 observations per band. The omnibus
+condition effect is a 2-df Wald F-test on the joint AUD/MULTI dummies;
+pairwise contrasts (AUD vs.\ VIZ, MULTI vs.\ VIZ, AUD vs.\ MULTI) are
+Wald t-tests on the corresponding contrast vectors. The crossed RE
+structure addresses pseudoreplication across channels within subjects;
+at n=5 subjects, however, between-subject variance is poorly
+estimated, so the LMM $p$-values should be read alongside the
+visible per-subject means in the violin overlays. Significance code:
+\texttt{*** $p\!<\!.001$, ** $p\!<\!.01$, * $p\!<\!.05$,
+$\sim$ $p\!<\!.10$, ns} otherwise.
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.96\linewidth]{Fig4_violins_VIZ_vs_AUD.png}
-\caption{\textbf{EEG--audio envelope correlation: \textsc{viz} vs.\
-\textsc{aud}, n=5 subjects $\times$ 32 channels.} Six EEG bands (delta
-0.5--4, theta 4--8, alpha 8--13, low-beta 13--20, high-beta 20--30,
-gamma$_1$ 30--50\,Hz). For each (subject, channel, band, condition) we
-band-pass-filter both the audio amplitude envelope and the EEG to the
-same band, then compute Pearson $r$ on the matched-rate signals. Each
-panel shows the distribution of those per-(subject, channel) $r$ values
-for \textsc{viz} (blue) and \textsc{aud} (rose); grey lines connect
-within-channel paired values; gold diamond + line shows the channel-mean
-trajectory. \emph{Statistical inference}: per-channel paired test with
-condition as fixed effect; the resulting per-channel $p$-values are
-Benjamini--Hochberg FDR-corrected within each band. Bracket annotation
-``$N/32$ ch FDR$<$.05'' reports the count of channels surviving FDR per
-band; the bracket star reflects the smallest band-level FDR-corrected
-$p$. \textsc{viz} vs.\ \textsc{aud} shows broadband effects: 30/32 ch
-delta ($*$), 5/32 theta ($*$), 32/32 alpha (\texttt{***}), 11/32
-high-beta ($*$); low-beta and gamma$_1$ ns.}
-\label{fig:Fig4_VA}
+\includegraphics[width=0.96\linewidth]{Fig15_eeg_audio_correlation_3cond.png}
+\caption{\textbf{EEG--audio band-matched correlation across the three
+multisensory conditions, n=5 subjects.} Six EEG bands $\times$ 3
+conditions; per-subject means across 32 channels are shown as black
+dots, gold diamond + line shows the group-mean trajectory across
+conditions, paired connectors link within-subject means.
+LMM omnibus $p$ inset (lower right of each panel); pairwise
+brackets show the three Wald t-test contrasts from the same model. The
+strongest contrasts replicate at the LMM level the broadband VIZ--AUD
+pattern previously reported: alpha and high-beta show \textsc{aud}
+elevation; delta and theta show \textsc{multi} elevation; gamma$_1$
+shows \textsc{multi} > VIZ.}
+\label{fig:eeg_corr3}
 \end{figure}
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.96\linewidth]{Fig4_violins_VIZ_vs_MULTI.png}
-\caption{\textbf{EEG--audio envelope correlation: \textsc{viz} vs.\
-\textsc{multi}, n=5 subjects $\times$ 32 channels.} Same layout, filters
-and statistical apparatus (per-channel paired test + BH-FDR within band)
-as Figure~\ref{fig:Fig4_VA}. Notable counts: 7/32 ch delta ($*$), 23/32
-theta (\texttt{**}), 0/32 alpha (ns), 0/32 low-beta (ns), 0/32 high-beta
-(ns), 24/32 gamma$_1$ (\texttt{**}).}
-\label{fig:Fig4_VM}
+\includegraphics[width=0.96\linewidth]{Fig18_eeg_audio_plv_3cond.png}
+\caption{\textbf{EEG--audio band-matched PLV across the three
+multisensory conditions, n=5 subjects.} Same layout and statistical
+apparatus as Figure~\ref{fig:eeg_corr3}. PLV is computed via
+narrowband-Hilbert phase extraction at the band centre frequency
+(\texttt{plv\_phase\_sync} with $f_0$ and $\Delta f$ matched to each
+band), so the metric isolates phase locking between the EEG band-rate
+oscillation and audio amplitude modulations at the same band-rate
+(cortical-tracking style). \emph{Bands where PLV agrees with the
+correlation pattern}: alpha (\textsc{aud} highest); low-beta
+(\textsc{multi} highest); gamma$_1$ (significant condition effect,
+direction differs from correlation). \emph{Where PLV diverges from
+correlation}: delta and theta (PLV ranks \textsc{multi}/VIZ above
+\textsc{aud} where correlation showed weaker effects). The divergence
+is informative: it isolates amplitude-independent phase alignment from
+the broader sample-by-sample co-variation captured by Pearson r.}
+\label{fig:eeg_plv3}
 \end{figure}
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.96\linewidth]{Fig4_violins_AUD_vs_MULTI.png}
-\caption{\textbf{EEG--audio envelope correlation: \textsc{aud} vs.\
-\textsc{multi}, n=5 subjects $\times$ 32 channels.} Same layout, filters
-and statistical apparatus (per-channel paired test + BH-FDR within band)
-as Figure~\ref{fig:Fig4_VA}. Notable counts: 1/32 ch delta (ns),
-32/32 theta (\texttt{***}), 0/32 alpha (ns), 0/32 low-beta (ns),
-26/32 high-beta (\texttt{***}), 0/32 gamma$_1$ (ns).}
-\label{fig:Fig4_AM}
+\includegraphics[width=0.96\linewidth]{Fig19_eeg_audio_wpli_3cond.png}
+\caption{\textbf{EEG--audio band-matched wPLI across the three
+multisensory conditions, n=5 subjects.} Same layout and statistical
+apparatus as Figure~\ref{fig:eeg_corr3}. wPLI debiases PLV against
+near-zero-lag phase differences (which can be inflated by volume
+conduction or narrowband filter ringing) and is therefore a more
+conservative phase-coupling readout. The qualitative condition
+rank-orders agree with PLV in alpha (\textsc{aud} highest), low-beta
+(\textsc{multi} highest) and gamma$_1$, with the omnibus effect
+slightly weaker (theta loses significance at LMM $p=0.143$). The
+agreement of wPLI with PLV in alpha and low-beta increases confidence
+that those band-specific contrasts are not driven by narrowband
+filter / volume-conduction artefacts.}
+\label{fig:eeg_wpli3}
 \end{figure}
 
 \section{Discussion}
@@ -667,11 +695,18 @@ lock internally but their phases scatter across the group --- consistent
 with a picture in which visual stimulation pulls each subject's preferred
 respiratory phase in idiosyncratic directions.
 
-EEG--audio band-matched amplitude coupling shows broad band-specific
-differences between conditions, but these are computed on the same data and
-their interpretation depends on the sensory contrast: e.g.\
-\textsc{multi}$>$\textsc{aud} on theta and high-beta is consistent with
-multisensory binding overhead, not with simple stimulus tracking.
+EEG--audio band-matched coupling, now reported with three complementary
+metrics (Pearson $r$, PLV, wPLI; Figures~\ref{fig:eeg_corr3},
+\ref{fig:eeg_plv3}, \ref{fig:eeg_wpli3}), shows broad band-specific
+differences between conditions. The most consistent pattern across the
+three metrics is alpha (\textsc{aud} highest, $p<.05$ at the LMM
+omnibus) and low-beta (\textsc{multi} highest), interpretable as
+auditory-attention engagement of alpha and a multisensory-binding
+fingerprint at low-beta respectively. Where PLV/wPLI disagree with
+the correlation pattern (delta, theta), the divergence isolates
+amplitude-blind phase alignment from broader sample-level
+co-variation --- both are real measurements of different things, and
+the larger study should report all three.
 
 The largest methodological lessons for the planned full study are: (1)
 phase metrics on the slow swell envelope should be the primary
