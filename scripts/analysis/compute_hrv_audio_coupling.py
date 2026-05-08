@@ -1,10 +1,26 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Compute coupling between HRV features and audio envelope.
+Compute coupling between cardiac signal and audio envelope.
 
-Similar to respiration-audio coupling but uses HRV time series (RMSSD, MeanNN, etc.)
-as the cardiac signal coupled with the audio envelope.
+This script uses TWO complementary cardiac derivations, each appropriate
+for a different family of coupling metrics:
+
+* **Instantaneous heart-rate (BPM) at 4 Hz**, built per-condition from
+  R-peak indices via 1/RR interpolation. Bandwidth ~0--2 Hz Nyquist;
+  carries beat-to-beat variability including respiratory sinus
+  arrhythmia and audio-swell-band oscillations. Used for the
+  **oscillatory metrics** PLV / wPLI / coherence at the swell band.
+* **Windowed HRV-feature traces** (HRV_MeanNN, HRV_RMSSD, HRV_SDNN)
+  computed in 30 s windows with 90% overlap, then linearly resampled
+  to 4 Hz. Effective bandwidth ~0--0.017 Hz (Nyquist of the windowed
+  series). Used for the **slow-trend metrics** cross-correlation
+  (and MI on the slow envelope).
+
+Mixing the two prevents narrowband-Hilbert phase analyses from being
+applied to traces whose effective bandwidth sits well below the swell
+band --- which would have made PLV / wPLI / coherence meaningless on a
+windowed RMSSD/MeanNN/SDNN trace.
 
 Usage:
     python compute_hrv_audio_coupling.py --subjects 2 3 4 5 6 --aggregate
@@ -29,6 +45,7 @@ from HNA.coupling import (
 )
 from HNA.modalities.ecg import (
     interpolate_hrv_to_regular_grid,
+    instantaneous_hr_signal,
     match_audio_to_hrv,  # noqa: F401  (kept for downstream callers)
 )
 
@@ -112,8 +129,9 @@ def process_subject(subj: str, data_dir: Path = DEFAULT_DATA_DIR, figures_dir: P
     processed = Path(data_dir) / "processed"
     sdir = processed / f"sub-{int(subj):02d}"
     tables = sdir / "tables"
+    ecg_dir = sdir / "ecg_processed"
     plots_dir = Path(figures_dir) / "per_subject" / f"sub-{int(subj):02d}"
-    
+
     # Load merged data for audio
     merged = tables / "merged_annotated_with_audio.csv"
     if not merged.exists():
@@ -150,20 +168,167 @@ def process_subject(subj: str, data_dir: Path = DEFAULT_DATA_DIR, figures_dir: P
             continue
         
         print(f"\n[{subj}] Processing {cond}")
-        
+
         # Load HRV features for this condition
         hrv_file = tables / f"hrv_features_{cond}.csv"
         if not hrv_file.exists():
             print(f"  WARNING: {hrv_file} not found, skipping {cond}")
             continue
-        
+
         hrv_df = pd.read_csv(hrv_file)
-        
+
+        # Load R-peaks for this condition (for instantaneous HR)
+        rpeaks_file = ecg_dir / f"rpeaks_{cond}.npy"
+        rpeaks_cond = np.load(rpeaks_file) if rpeaks_file.exists() else None
+        if rpeaks_cond is None:
+            print(f"  NOTE: {rpeaks_file.name} missing -> oscillatory metrics "
+                  f"(PLV / wPLI / coherence) will be skipped")
+
         # Get audio segment
         r = df.iloc[start:stop].copy()
         env = r[env_col].to_numpy(dtype=float)
         audio_time = r["time_s"].to_numpy(dtype=float)
-        
+
+        # ----- ONE-TIME (per condition) -----
+        # Build instantaneous HR (4 Hz) for the oscillatory metrics.
+        # Time grid follows the audio segment so xcorr/coherence can be
+        # compared against the same matched envelope.
+        hr_inst = None
+        env_at_4hz = None
+        if rpeaks_cond is not None and len(rpeaks_cond) >= 4:
+            seg_duration_s = (stop - start) / FS_AUDIO
+            n_target = int(round(seg_duration_s * FS_HRV_TARGET))
+            # R-peaks in rpeaks_<COND>.npy are saved by 05_preprocess_ecg.py
+            # from `preprocess_ecg_segment(ecg_for_this_condition, fs=FS)`,
+            # so the indices are already condition-relative (starting at 0
+            # within the condition slice). No rebasing needed.
+            rpeaks_seg = rpeaks_cond
+            try:
+                hr_inst = instantaneous_hr_signal(
+                    rpeaks_seg, fs_in=FS_AUDIO,
+                    fs_target=FS_HRV_TARGET, n_samples=n_target,
+                )
+                # Match audio to the same 4 Hz grid the HR trace lives on.
+                # Pre-clean NaN in the audio envelope so np.interp doesn't
+                # propagate them onto the target grid.
+                audio_time_cond = audio_time - audio_time[0]
+                env_finite_mask = np.isfinite(env)
+                if env_finite_mask.sum() < 2:
+                    raise ValueError("audio envelope all-NaN in this segment")
+                env_clean = np.interp(
+                    audio_time_cond,
+                    audio_time_cond[env_finite_mask],
+                    env[env_finite_mask],
+                )
+                t_target = np.arange(n_target) / FS_HRV_TARGET
+                env_at_4hz = np.interp(t_target, audio_time_cond, env_clean)
+                # Ensure equal length defensively
+                m = min(len(hr_inst), len(env_at_4hz))
+                hr_inst, env_at_4hz = hr_inst[:m], env_at_4hz[:m]
+                if not np.all(np.isfinite(hr_inst)):
+                    # Fall back: replace residual NaN with mean (helper
+                    # already does this; defensive double-check)
+                    mu = float(np.nanmean(hr_inst))
+                    hr_inst = np.where(np.isfinite(hr_inst), hr_inst, mu)
+                if not np.all(np.isfinite(env_at_4hz)):
+                    mu = float(np.nanmean(env_at_4hz))
+                    env_at_4hz = np.where(
+                        np.isfinite(env_at_4hz), env_at_4hz, mu
+                    )
+            except Exception as e:  # noqa: BLE001
+                print(f"  WARNING: instantaneous HR build failed ({e}); "
+                      f"oscillatory metrics will be skipped")
+                hr_inst = None
+                env_at_4hz = None
+
+        # Compute PLV / wPLI / coherence ONCE on (hr_inst, env_at_4hz)
+        plv_payload = None
+        wpli_payload = None
+        coh_payload = None
+        coh_full = None       # full dict (with 'f' and 'Cxy') for plotting
+
+        # Sanity-check: signals must be finite, non-empty, and have
+        # variance (PLV / wPLI / coherence are undefined on a constant
+        # signal --- _nan_interp would raise "all values are NaN" on
+        # one that became NaN after filtering).
+        oscillatory_ok = (
+            hr_inst is not None and env_at_4hz is not None
+            and len(hr_inst) >= int(FS_HRV_TARGET * 60)  # >= 60 s
+            and np.all(np.isfinite(hr_inst))
+            and np.all(np.isfinite(env_at_4hz))
+            and float(np.std(hr_inst)) > 1e-9
+            and float(np.std(env_at_4hz)) > 1e-9
+        )
+        if oscillatory_ok:
+            try:
+                print(f"    [oscillatory] hr_inst ({len(hr_inst)} samp @ "
+                      f"{FS_HRV_TARGET} Hz) <-> {env_col}")
+                plv_obj = plv_phase_sync(hr_inst, env_at_4hz,
+                                          fs=FS_HRV_TARGET, bw_hz=PLV_BW)
+                plv_win_dict = windowed_plv(hr_inst, env_at_4hz,
+                                             fs=FS_HRV_TARGET,
+                                             win_sec=XC_WIN, step_sec=XC_STEP)
+                wpli_obj = wpli_phase_sync(hr_inst, env_at_4hz,
+                                            fs=FS_HRV_TARGET, bw_hz=PLV_BW)
+                wpli_win_dict = windowed_wpli(hr_inst, env_at_4hz,
+                                               fs=FS_HRV_TARGET,
+                                               win_sec=WPLI_WIN,
+                                               step_sec=WPLI_STEP)
+                coh_dict = band_coherence_windowed(
+                    hr_inst, env_at_4hz, fs=FS_HRV_TARGET,
+                    fmin=COH_FMIN, fmax=COH_FMAX,
+                    win_sec=XC_WIN, step_sec=XC_STEP,
+                )
+                coh_full = coh_dict  # keep raw dict for plotting
+            except Exception as e:  # noqa: BLE001
+                print(f"    WARNING: oscillatory metrics failed ({e}); "
+                      f"skipping PLV / wPLI / coherence for this condition")
+                plv_obj = wpli_obj = coh_dict = None
+                plv_win_dict = wpli_win_dict = None
+                coh_full = None
+                oscillatory_ok = False
+        if oscillatory_ok and plv_obj is not None:
+            plv_payload = {
+                "plv": plv_obj.plv,
+                "preferred_lag_s": plv_obj.preferred_lag_s,
+                "dom_freq": plv_obj.f0,
+                "win_times_s": plv_win_dict["times_s"].tolist(),
+                "win_plv": plv_win_dict["plv"].tolist(),
+                "win_preferred_lag_s": plv_win_dict["preferred_lag_s"].tolist(),
+                "signal": "hr_instantaneous_4Hz",
+            }
+            wpli_payload = {
+                "wpli": wpli_obj.wpli,
+                "band": list(wpli_obj.band),
+                "win_times_s": wpli_win_dict["times_s"].tolist(),
+                "win_wpli": wpli_win_dict["wpli"].tolist(),
+                "signal": "hr_instantaneous_4Hz",
+            }
+            coh_payload = {
+                "peak_f": coh_dict["peak_f"],
+                "peak_coh": coh_dict["peak_coh"],
+                "band_avg_coh": coh_dict["band_avg_coh"],
+                "times_s": coh_dict["times_s"].tolist(),
+                "band_avg_coh_win": coh_dict["band_avg_coh_win"].tolist(),
+                "band": [COH_FMIN, COH_FMAX],
+                "signal": "hr_instantaneous_4Hz",
+            }
+
+            # Save the oscillatory payload once per condition (independent
+            # of HRV-feature loop below).
+            osc_json = tables / f"hrv_audio_coupling_{cond}_hr_instantaneous.json"
+            if overwrite or not osc_json.exists():
+                with open(osc_json, "w", encoding="utf-8") as f:
+                    json.dump({
+                        "subject": subj, "condition": cond,
+                        "signal": "hr_instantaneous_4Hz",
+                        "fs": FS_HRV_TARGET, "env_col": env_col,
+                        "plv": plv_payload, "wpli": wpli_payload,
+                        "coherence": coh_payload,
+                    }, f, ensure_ascii=False)
+                print(f"    [oscillatory] saved {osc_json.name}")
+
+        # ----- PER-HRV-FEATURE LOOP (slow-trend xcorr) -----
         # Process each HRV feature
         for hrv_feat in hrv_features:
             if hrv_feat not in hrv_df.columns:
@@ -204,27 +369,20 @@ def process_subject(subj: str, data_dir: Path = DEFAULT_DATA_DIR, figures_dir: P
                 if not np.all(np.isfinite(env_matched)):
                     raise ValueError(f"Audio envelope contains NaN/Inf after matching")
                 
-                print(f"      Signals: {len(hrv_signal)} samples @ {FS_HRV_TARGET} Hz "
-                      f"({len(hrv_signal)/FS_HRV_TARGET:.1f}s)")
-                
-                # Compute coupling metrics
-                xc = windowed_xcorr(hrv_signal, env_matched, fs=FS_HRV_TARGET, 
-                                   win_sec=XC_WIN, step_sec=XC_STEP, max_lag_sec=XC_LAG)
-                
-                coh = band_coherence_windowed(hrv_signal, env_matched, fs=FS_HRV_TARGET,
-                                             fmin=COH_FMIN, fmax=COH_FMAX,
-                                             win_sec=XC_WIN, step_sec=XC_STEP)
-                
-                plv = plv_phase_sync(hrv_signal, env_matched, fs=FS_HRV_TARGET, 
-                                    bw_hz=PLV_BW)
-                plv_win = windowed_plv(hrv_signal, env_matched, fs=FS_HRV_TARGET,
-                                      win_sec=XC_WIN, step_sec=XC_STEP)
-                
-                wpli_g = wpli_phase_sync(hrv_signal, env_matched, fs=FS_HRV_TARGET,
-                                        bw_hz=PLV_BW)
-                wpli_w = windowed_wpli(hrv_signal, env_matched, fs=FS_HRV_TARGET,
-                                      win_sec=WPLI_WIN, step_sec=WPLI_STEP)
-                
+                print(f"      [slow-trend] {hrv_feat}: "
+                      f"{len(hrv_signal)} samp @ {FS_HRV_TARGET} Hz "
+                      f"({len(hrv_signal)/FS_HRV_TARGET:.1f} s)")
+
+                # Slow-trend metric: cross-correlation only.
+                # PLV / wPLI / coherence are NOT computed on the windowed
+                # HRV-feature trace (its bandwidth ~0-0.017 Hz lies below
+                # the swell band; narrowband-Hilbert phase analyses on it
+                # are meaningless). They are computed once per condition
+                # on the instantaneous-HR signal, above.
+                xc = windowed_xcorr(hrv_signal, env_matched, fs=FS_HRV_TARGET,
+                                    win_sec=XC_WIN, step_sec=XC_STEP,
+                                    max_lag_sec=XC_LAG)
+
                 # Save results
                 payload = {
                     "subject": subj,
@@ -232,6 +390,7 @@ def process_subject(subj: str, data_dir: Path = DEFAULT_DATA_DIR, figures_dir: P
                     "hrv_feature": hrv_feat,
                     "fs": FS_HRV_TARGET,
                     "env_col": env_col,
+                    "signal": f"{hrv_feat}_30s_window_at_4Hz",
                     "xcorr": {
                         "mean_peak_r": float(np.nanmean(xc.peak_r)),
                         "mean_peak_lag_s": float(np.nanmean(xc.peak_lag_s)),
@@ -239,39 +398,46 @@ def process_subject(subj: str, data_dir: Path = DEFAULT_DATA_DIR, figures_dir: P
                         "peak_r": xc.peak_r.tolist(),
                         "peak_lag_s": xc.peak_lag_s.tolist(),
                     },
-                    "coherence": {
-                        "peak_f": coh["peak_f"],
-                        "peak_coh": coh["peak_coh"],
-                        "band_avg_coh": coh["band_avg_coh"],
-                        "times_s": coh["times_s"].tolist(),
-                        "band_avg_coh_win": coh["band_avg_coh_win"].tolist(),
-                        "band": [COH_FMIN, COH_FMAX],
-                    },
-                    "plv": {
-                        "plv": plv.plv,
-                        "preferred_lag_s": plv.preferred_lag_s,
-                        "dom_freq": plv.f0,
-                        "win_times_s": plv_win["times_s"].tolist(),
-                        "win_plv": plv_win["plv"].tolist(),
-                        "win_preferred_lag_s": plv_win["preferred_lag_s"].tolist(),
-                    },
-                    "wpli": {
-                        "wpli": wpli_g.wpli,
-                        "band": list(wpli_g.band),
-                        "win_times_s": wpli_w["times_s"].tolist(),
-                        "win_wpli": wpli_w["wpli"].tolist(),
-                    },
+                    # PLV / wPLI / coherence sit in the per-condition
+                    # ``hrv_audio_coupling_{cond}_hr_instantaneous.json``
+                    # file (they don't depend on which HRV feature is
+                    # under test).
                 }
-                
+
                 with open(out_json, "w", encoding="utf-8") as f:
                     json.dump(payload, f, ensure_ascii=False)
-                
+
                 print(f"      Saved: {out_json.name}")
-                
-                # Save plots (write to figures/per_subject/sub-XX, not data/.../plots)
-                save_coupling_plots(plots_dir, cond, hrv_feat, xc, coh, plv_win, env_col,
-                                    hrv_signal=hrv_signal, env_matched=env_matched, fs=FS_HRV_TARGET)
-                
+
+                # Save plots: the time-resolved coupling plot mixes xcorr
+                # (slow-trend) with PLV / coherence (oscillatory) so that
+                # each panel shows its appropriate cardiac derivation.
+                if plv_payload is not None:
+                    plv_win_for_plot = {
+                        "times_s": np.asarray(plv_payload["win_times_s"]),
+                        "plv": np.asarray(plv_payload["win_plv"]),
+                        "preferred_lag_s": np.asarray(
+                            plv_payload["win_preferred_lag_s"]
+                        ),
+                    }
+                else:
+                    plv_win_for_plot = {
+                        "times_s": np.array([]), "plv": np.array([]),
+                        "preferred_lag_s": np.array([]),
+                    }
+                save_coupling_plots(
+                    plots_dir, cond, hrv_feat, xc,
+                    coh_full if coh_full is not None else {
+                        "f": np.array([]), "Cxy": np.array([]),
+                        "peak_f": np.nan, "peak_coh": np.nan,
+                        "band_avg_coh": np.nan, "times_s": np.array([]),
+                        "band_avg_coh_win": np.array([]),
+                    },
+                    plv_win_for_plot, env_col,
+                    hrv_signal=hrv_signal, env_matched=env_matched,
+                    fs=FS_HRV_TARGET,
+                )
+
             except Exception as e:
                 print(f"      ERROR: {e}")
                 continue
@@ -295,26 +461,52 @@ def aggregate_group(hrv_features=None, data_dir: Path = DEFAULT_DATA_DIR, save_t
     rows = []
     for sub_dir in sorted(processed.glob("sub-*")):
         tables_dir = sub_dir / "tables"
-        
-        for json_file in tables_dir.glob("hrv_audio_coupling_*.json"):
+
+        # Cache the per-condition oscillatory payload (PLV / wPLI / coh
+        # computed once on hr_instantaneous_4Hz). Keyed by condition.
+        osc_cache: dict[str, dict] = {}
+        for osc_json in tables_dir.glob(
+                "hrv_audio_coupling_*_hr_instantaneous.json"):
+            try:
+                with open(osc_json, "r") as f:
+                    payload = json.load(f)
+                osc_cache[payload["condition"]] = payload
+            except Exception:  # noqa: BLE001
+                pass
+
+        for json_file in sorted(tables_dir.glob("hrv_audio_coupling_*.json")):
+            # Skip the per-condition oscillatory payload (one row per
+            # condition there, not per HRV feature).
+            if json_file.name.endswith("_hr_instantaneous.json"):
+                continue
             try:
                 with open(json_file, 'r') as f:
                     data = json.load(f)
-                
+
+                cond = data["condition"]
+                osc = osc_cache.get(cond, {})
+                osc_plv = osc.get("plv") or {}
+                osc_wpli = osc.get("wpli") or {}
+                osc_coh = osc.get("coherence") or {}
+
                 row = {
                     "subject": data["subject"],
-                    "condition": data["condition"],
+                    "condition": cond,
                     "hrv_feature": data["hrv_feature"],
                     "env_col": data["env_col"],
+                    # Slow-trend metric (per HRV feature)
                     "xcorr_mean_peak_r": data["xcorr"]["mean_peak_r"],
                     "xcorr_mean_peak_lag_s": data["xcorr"]["mean_peak_lag_s"],
-                    "coh_band_avg": data["coherence"]["band_avg_coh"],
-                    "coh_peak": data["coherence"]["peak_coh"],
-                    "coh_peak_f": data["coherence"]["peak_f"],
-                    "plv": data["plv"]["plv"],
-                    "plv_pref_lag_s": data["plv"]["preferred_lag_s"],
-                    "plv_dom_f": data["plv"]["dom_freq"],
-                    "wpli": data["wpli"]["wpli"],
+                    # Oscillatory metrics (per condition; same value
+                    # repeated across the three HRV-feature rows)
+                    "coh_band_avg": osc_coh.get("band_avg_coh", float("nan")),
+                    "coh_peak": osc_coh.get("peak_coh", float("nan")),
+                    "coh_peak_f": osc_coh.get("peak_f", float("nan")),
+                    "plv": osc_plv.get("plv", float("nan")),
+                    "plv_pref_lag_s": osc_plv.get("preferred_lag_s", float("nan")),
+                    "plv_dom_f": osc_plv.get("dom_freq", float("nan")),
+                    "wpli": osc_wpli.get("wpli", float("nan")),
+                    "osc_signal": osc_plv.get("signal", "unavailable"),
                 }
                 rows.append(row)
             except Exception as e:

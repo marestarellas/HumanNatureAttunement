@@ -42,6 +42,7 @@ from HNA.coupling import (
     plv_phase_sync, windowed_plv,
     wpli_phase_sync, windowed_wpli,
 )
+from HNA.modalities.ecg import instantaneous_hr_signal
 from scipy.interpolate import interp1d
 
 
@@ -98,16 +99,31 @@ FS_HRV = 4.0
 
 
 def _compute_hrv_for_condition(df_merged, cond, hrv_features_csv, env_col,
-                               hrv_feature="HRV_MeanNN"):
-    """Compute scalar + windowed HRV-audio coupling on the fly from the merged CSV.
+                               hrv_feature="HRV_MeanNN",
+                               rpeaks_file: Path = None):
+    """Compute scalar + windowed HRV-audio coupling on the fly.
 
-    Returns dict with keys ``scalar`` and ``windowed`` (each a dict of metric -> value/array).
+    Two cardiac derivations, each used for the metrics it can support:
+
+    - **Slow trend (xcorr)**: uses the windowed HRV-feature trace
+      (``hrv_signal``, e.g.\\ HRV_MeanNN) interpolated onto a 4 Hz grid.
+      Effective bandwidth ~0--0.017 Hz.
+    - **Oscillatory (PLV / wPLI / coherence)**: uses the
+      **instantaneous heart-rate trace** at 4 Hz, built from R-peak
+      indices via 1/RR cubic interpolation (effective bandwidth
+      ~0--2 Hz). Required because the windowed HRV-feature trace's
+      bandwidth lies below the audio swell band, making narrowband-
+      Hilbert phase analyses on it meaningless.
+
+    Returns dict with keys ``scalar`` and ``windowed`` (each a dict of
+    metric -> value/array).
     """
     indices = get_condition_segments(df_merged, df_merged["condition_names"].unique())
     starts = indices.get(f"{cond}_start"); stops = indices.get(f"{cond}_stop")
     if starts is None or stops is None:
         return None
-    r = df_merged.iloc[int(starts):int(stops)]
+    start_idx, stop_idx = int(starts), int(stops)
+    r = df_merged.iloc[start_idx:stop_idx]
     if env_col not in r.columns:
         return None
     audio_time = r["time_s"].to_numpy(float)
@@ -116,6 +132,7 @@ def _compute_hrv_for_condition(df_merged, cond, hrv_features_csv, env_col,
     if not np.all(np.isfinite(env_full)) or len(env_full) < int(FS_AUDIO * 30):
         return None
 
+    # ----- Build windowed HRV-feature trace at 4 Hz (slow-trend) -----
     hrv_df = pd.read_csv(hrv_features_csv)
     if hrv_feature not in hrv_df.columns:
         return None
@@ -136,33 +153,83 @@ def _compute_hrv_for_condition(df_merged, cond, hrv_features_csv, env_col,
     m = np.isfinite(hrv_signal) & np.isfinite(env_on_hrv)
     if m.sum() < int(FS_HRV * 60):
         return None
-    h = hrv_signal[m]; e = env_on_hrv[m]
+    h_slow = hrv_signal[m]; e_slow = env_on_hrv[m]
 
-    # Windowed metrics (HRV-tuned: 120 s win, 10 s step, 30 s xcorr lag)
-    xc = windowed_xcorr(h, e, fs=FS_HRV, win_sec=120.0, step_sec=10.0, max_lag_sec=30.0)
-    coh = band_coherence_windowed(h, e, fs=FS_HRV, fmin=0.01, fmax=0.5,
-                                  win_sec=120.0, step_sec=30.0)
-    plv_w = windowed_plv(h, e, fs=FS_HRV, win_sec=120.0, step_sec=10.0,
-                         bw_hz=0.10, fmin_search=0.02, fmax_search=0.5)
-    wpli_w = windowed_wpli(h, e, fs=FS_HRV, win_sec=120.0, step_sec=10.0,
-                           bw_hz=0.10, fmin_search=0.02, fmax_search=0.5)
-    plv_g = plv_phase_sync(h, e, fs=FS_HRV, bw_hz=0.10,
-                           fmin_search=0.02, fmax_search=0.5)
-    wpli_g = wpli_phase_sync(h, e, fs=FS_HRV, bw_hz=0.10,
-                             fmin_search=0.02, fmax_search=0.5)
+    # ----- Build instantaneous-HR trace at 4 Hz (oscillatory) -----
+    hr_inst = None
+    env_at_4hz = None
+    if rpeaks_file is not None and rpeaks_file.exists():
+        rpeaks_seg = np.load(rpeaks_file)  # condition-relative indices
+        if len(rpeaks_seg) >= 4:
+            seg_duration_s = (stop_idx - start_idx) / FS_AUDIO
+            n_target = int(round(seg_duration_s * FS_HRV))
+            try:
+                hr_inst = instantaneous_hr_signal(
+                    rpeaks_seg, fs_in=FS_AUDIO, fs_target=FS_HRV,
+                    n_samples=n_target,
+                )
+                t_target = np.arange(n_target) / FS_HRV
+                env_at_4hz = np.interp(
+                    t_target,
+                    audio_time[np.isfinite(env_full)],
+                    env_full[np.isfinite(env_full)],
+                )
+                m_osc = np.isfinite(hr_inst) & np.isfinite(env_at_4hz)
+                if (m_osc.sum() < int(FS_HRV * 60)
+                        or float(np.std(hr_inst[m_osc])) < 1e-9
+                        or float(np.std(env_at_4hz[m_osc])) < 1e-9):
+                    hr_inst = env_at_4hz = None
+                else:
+                    hr_inst = hr_inst[m_osc]
+                    env_at_4hz = env_at_4hz[m_osc]
+            except Exception:  # noqa: BLE001
+                hr_inst = env_at_4hz = None
+
+    # ----- Slow-trend metric on HRV-feature trace -----
+    xc = windowed_xcorr(h_slow, e_slow, fs=FS_HRV,
+                         win_sec=120.0, step_sec=10.0, max_lag_sec=30.0)
+
+    # ----- Oscillatory metrics on instantaneous HR -----
+    if hr_inst is not None and env_at_4hz is not None:
+        coh = band_coherence_windowed(hr_inst, env_at_4hz, fs=FS_HRV,
+                                       fmin=0.01, fmax=0.5,
+                                       win_sec=120.0, step_sec=30.0)
+        plv_w = windowed_plv(hr_inst, env_at_4hz, fs=FS_HRV,
+                              win_sec=120.0, step_sec=10.0, bw_hz=0.10,
+                              fmin_search=0.02, fmax_search=0.5)
+        wpli_w = windowed_wpli(hr_inst, env_at_4hz, fs=FS_HRV,
+                                win_sec=120.0, step_sec=10.0, bw_hz=0.10,
+                                fmin_search=0.02, fmax_search=0.5)
+        plv_g = plv_phase_sync(hr_inst, env_at_4hz, fs=FS_HRV,
+                                bw_hz=0.10, fmin_search=0.02, fmax_search=0.5)
+        wpli_g = wpli_phase_sync(hr_inst, env_at_4hz, fs=FS_HRV,
+                                  bw_hz=0.10, fmin_search=0.02, fmax_search=0.5)
+        coh_band_avg_scalar = float(coh["band_avg_coh"])
+        coh_band_avg_win = np.asarray(coh["band_avg_coh_win"], float)
+        plv_scalar = float(plv_g.plv)
+        wpli_scalar = float(wpli_g.wpli)
+        plv_win = np.asarray(plv_w["plv"], float)
+        wpli_win = np.asarray(wpli_w["wpli"], float)
+    else:
+        coh_band_avg_scalar = float("nan")
+        coh_band_avg_win = np.array([], dtype=float)
+        plv_scalar = float("nan")
+        wpli_scalar = float("nan")
+        plv_win = np.array([], dtype=float)
+        wpli_win = np.array([], dtype=float)
 
     return {
         "scalar": {
             "xcorr_peak_r": float(np.nanmean(xc.peak_r)),
-            "coh_band_avg": float(coh["band_avg_coh"]),
-            "plv": float(plv_g.plv),
-            "wpli": float(wpli_g.wpli),
+            "coh_band_avg": coh_band_avg_scalar,
+            "plv": plv_scalar,
+            "wpli": wpli_scalar,
         },
         "windowed": {
             "xcorr_peak_r": np.asarray(xc.peak_r, float),
-            "coh_band_avg": np.asarray(coh["band_avg_coh_win"], float),
-            "plv": np.asarray(plv_w["plv"], float),
-            "wpli": np.asarray(wpli_w["wpli"], float),
+            "coh_band_avg": coh_band_avg_win,
+            "plv": plv_win,
+            "wpli": wpli_win,
         },
     }
 
@@ -186,8 +253,11 @@ def collect_hrv_envelope(subjects, env_col, data_dir,
             hrv_csv = data_dir / "processed" / sub / "tables" / f"hrv_features_{cond}.csv"
             if not hrv_csv.exists():
                 continue
+            rpeaks_file = (data_dir / "processed" / sub / "ecg_processed"
+                            / f"rpeaks_{cond}.npy")
             res = _compute_hrv_for_condition(df, cond, hrv_csv, env_col,
-                                             hrv_feature=hrv_feature)
+                                             hrv_feature=hrv_feature,
+                                             rpeaks_file=rpeaks_file)
             if res is None:
                 continue
             for mk, val in res["scalar"].items():
@@ -208,6 +278,11 @@ def collect(subjects, modality: str, data_dir: Path, hrv_feature: str = "HRV_Mea
     """Returns:
         scalar_df : long-form (subject, condition, metric, value)
         window_df : long-form (subject, condition, metric, window_value)
+
+    For HRV (post-refactor) the metric values come from two files:
+        * xcorr_peak_r       <- per-feature JSON (windowed HRV-feature trace)
+        * plv / wpli / coh   <- per-condition `_hr_instantaneous.json`
+                                (instantaneous HR @ 4 Hz)
     """
     scalar_rows, window_rows = [], []
 
@@ -215,18 +290,37 @@ def collect(subjects, modality: str, data_dir: Path, hrv_feature: str = "HRV_Mea
         for c in (*REST_SET, *NATURE_SET):
             if modality == "resp":
                 p = _resp_json(data_dir, s, c)
+                if not p.exists():
+                    continue
+                with open(p) as f:
+                    d = json.load(f)
+                primary = d
+                osc = d   # resp JSON keeps all metrics in one file
             else:
+                # HRV: per-feature JSON has xcorr; per-condition file has
+                # plv / wpli / coh on instantaneous HR
                 p = _hrv_json(data_dir, s, c, hrv_feature)
-            if not p.exists():
-                continue
-            with open(p) as f:
-                d = json.load(f)
+                if not p.exists():
+                    continue
+                with open(p) as f:
+                    primary = json.load(f)
+                osc_path = (data_dir / "processed" / f"sub-{s:02d}" / "tables"
+                             / f"hrv_audio_coupling_{c}_hr_instantaneous.json")
+                if osc_path.exists():
+                    with open(osc_path) as f:
+                        osc = json.load(f)
+                else:
+                    osc = {}
+
             for metric_key, _, json_path in METRICS:
-                val = _scalar_metric(d, metric_key)
+                # Choose the file: xcorr_peak_r from `primary`; oscillatory
+                # metrics from `osc`. (For resp these are the same dict.)
+                src = primary if metric_key == "xcorr_peak_r" else osc
+                val = _scalar_metric(src, metric_key)
                 if np.isfinite(val):
                     scalar_rows.append({"subject_id": s, "condition": c,
                                          "metric": metric_key, "value": float(val)})
-                arr = _windowed_metric(d, metric_key, json_path)
+                arr = _windowed_metric(src, metric_key, json_path)
                 for v in arr:
                     if np.isfinite(v):
                         window_rows.append({"subject_id": s, "condition": c,

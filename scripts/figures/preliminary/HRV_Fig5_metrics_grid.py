@@ -52,24 +52,62 @@ def _scalar(d, key):
 
 
 def load_coupling(subjects, conditions, hrv_features, data_dir):
+    """Read coupling values written by ``compute_hrv_audio_coupling.py``.
+
+    The new schema (after the instantaneous-HR refactor) splits PLV /
+    wPLI / coherence (oscillatory metrics, one set per condition,
+    computed on instantaneous HR @ 4 Hz) into a separate file
+    ``hrv_audio_coupling_<COND>_hr_instantaneous.json``, leaving the
+    per-feature ``hrv_audio_coupling_<COND>_<HRV_FEAT>.json`` files to
+    carry only the slow-trend metrics (xcorr). For each (subject,
+    condition, hrv_feature) row we attach the same per-condition PLV /
+    wPLI / coherence triplet --- it does not depend on which HRV
+    feature is under test.
+    """
     rows = []
     for s in subjects:
         for c in conditions:
+            tables_dir = (data_dir / "processed" /
+                           f"sub-{s:02d}" / "tables")
+            # Per-condition oscillatory payload (shared across features)
+            osc_path = tables_dir / f"hrv_audio_coupling_{c}_hr_instantaneous.json"
+            osc_plv = osc_wpli = osc_coh = float("nan")
+            if osc_path.exists():
+                try:
+                    with open(osc_path) as f:
+                        osc = json.load(f)
+                    p_block = osc.get("plv") or {}
+                    w_block = osc.get("wpli") or {}
+                    c_block = osc.get("coherence") or {}
+                    osc_plv = float(p_block.get("plv", float("nan")))
+                    osc_wpli = float(w_block.get("wpli", float("nan")))
+                    osc_coh = float(c_block.get("band_avg_coh", float("nan")))
+                except Exception:  # noqa: BLE001
+                    pass
+
             for feat in hrv_features:
-                p = data_dir / "processed" / f"sub-{s:02d}" / "tables" / f"hrv_audio_coupling_{c}_{feat}.json"
+                p = tables_dir / f"hrv_audio_coupling_{c}_{feat}.json"
                 if not p.exists():
                     continue
+                # The per-feature JSON carries xcorr; PLV / wPLI / coh
+                # have moved to the per-condition oscillatory file. Older
+                # JSONs (pre-refactor) still keep all three fields, so
+                # the loader prefers the per-condition file when
+                # available and falls back to the per-feature file
+                # otherwise (so this loader stays back-compatible).
                 with open(p) as f:
                     d = json.load(f)
-                # band-averaged coherence is nested under d["coherence"]
-                coh = d.get("coherence", {})
-                coh_avg = (float(coh.get("band_avg_coh", np.nan))
-                           if isinstance(coh, dict) else float("nan"))
+                fb_coh = d.get("coherence")
+                fb_coh_avg = (float(fb_coh.get("band_avg_coh", np.nan))
+                               if isinstance(fb_coh, dict) else float("nan"))
+                fb_plv = _scalar(d, "plv")
+                fb_wpli = _scalar(d, "wpli")
                 rows.append({
                     "subject_id": s, "condition": c, "hrv_feature": feat,
-                    "plv": _scalar(d, "plv"),
-                    "wpli": _scalar(d, "wpli"),
-                    "coh_band_avg": coh_avg,
+                    "plv": osc_plv if np.isfinite(osc_plv) else fb_plv,
+                    "wpli": osc_wpli if np.isfinite(osc_wpli) else fb_wpli,
+                    "coh_band_avg": (osc_coh if np.isfinite(osc_coh)
+                                      else fb_coh_avg),
                 })
     return pd.DataFrame(rows)
 
@@ -98,16 +136,27 @@ def friedman_with_posthoc(df, conditions, metric, hrv_feature):
 
 def plot_grid(df, conditions, hrv_features, output_path,
               metrics=("plv", "wpli", "coh_band_avg")):
+    """Plot a 1 x n_metrics violin grid for the oscillatory metrics.
+
+    After the instantaneous-HR refactor, PLV / wPLI / coherence are
+    computed once per condition on instantaneous HR @ 4 Hz and do
+    **not** depend on which HRV feature is under test. The figure is
+    therefore collapsed to a single row; the ``hrv_features`` argument
+    is kept for API back-compat but only its first element is used to
+    label the row (the slow-trend row is no longer produced here ---
+    that's xcorr's domain, in the nature-vs-rest figure).
+    """
     use_paper_style()
     metrics = list(metrics)
-    n_rows = len(hrv_features)
+    feat = hrv_features[0] if hrv_features else "HRV_MeanNN"
+    n_rows = 1
     n_cols = len(metrics)
     fig, axes = plt.subplots(n_rows, n_cols,
-                             figsize=(3.4 * n_cols + 0.6, 2.9 * n_rows + 0.6),
+                             figsize=(3.4 * n_cols + 0.6, 3.2),
                              sharex=False, sharey=False)
     axes = np.atleast_2d(axes)
 
-    for r, feat in enumerate(hrv_features):
+    for r in range(1):
         for c, metric in enumerate(metrics):
             ax = axes[r, c]
             sub = df[df["hrv_feature"] == feat].dropna(subset=[metric])
@@ -142,10 +191,10 @@ def plot_grid(df, conditions, hrv_features, output_path,
             ax.set_xticks(range(len(conditions)))
             ax.set_xticklabels(conditions)
             ax.grid(True, axis="y", alpha=0.30)
-            if r == 0:
-                ax.set_title(METRIC_LABELS[metric], fontsize=12, fontweight="bold")
+            ax.set_title(METRIC_LABELS[metric], fontsize=12, fontweight="bold")
             if c == 0:
-                ax.set_ylabel(HRV_LABEL.get(feat, feat), fontsize=11.5, fontweight="bold")
+                ax.set_ylabel("instantaneous HR @ 4 Hz",
+                              fontsize=11.5, fontweight="bold")
 
             # Stats: Friedman + pairwise Wilcoxon brackets
             stats = friedman_with_posthoc(df, conditions, metric, feat)

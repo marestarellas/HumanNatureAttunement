@@ -18,10 +18,20 @@ HRV time-series (windowed)
   + R-peak set and emit a :class:`pandas.DataFrame` of HRV features per
   window (NeuroKit2's ``nk.hrv``).
 
+Instantaneous HR (beat-resolved, ~2 Hz Nyquist)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+- :func:`instantaneous_hr_signal` — build a regularly-sampled
+  instantaneous-HR (BPM) trace from R-peak indices via 1/RR at midpoints
+  + cubic interpolation. Use this for oscillatory / phase-locking
+  analyses against the audio swell (the windowed HRV traces below have
+  bandwidth too narrow to support narrowband-Hilbert phase analyses).
+
 HRV ↔ audio alignment helpers
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 - :func:`interpolate_hrv_to_regular_grid` — resample a windowed HRV column
-  onto a regular time grid (typically 4 Hz).
+  onto a regular time grid (typically 4 Hz). Suitable for slow-trend
+  metrics (xcorr, MI), NOT for narrowband phase-locking against the audio
+  swell.
 - :func:`match_audio_to_hrv` — interpolate an audio envelope onto an HRV
   time grid for downstream coupling.
 
@@ -162,6 +172,87 @@ def compute_rolling_hrv_features(
     meta_cols = ["window_idx", "time_start", "time_end", "n_peaks"]
     other_cols = [c for c in features_df.columns if c not in meta_cols]
     return features_df[meta_cols + other_cols]
+
+
+# ----------------------------------------------------------------------
+# Instantaneous heart-rate (beat-resolved trace)
+# ----------------------------------------------------------------------
+def instantaneous_hr_signal(
+    rpeak_indices: np.ndarray,
+    fs_in: float,
+    fs_target: float = DEFAULT_HRV_FS_TARGET,
+    n_samples: Optional[int] = None,
+    duration_s: Optional[float] = None,
+    kind: str = "cubic",
+) -> np.ndarray:
+    """Build a regularly-sampled instantaneous-HR (BPM) trace from R-peaks.
+
+    Algorithm: ``BPM_i = 60 / RR_i`` placed at the midpoint of each RR
+    interval, then interpolated onto a regular ``fs_target`` grid (cubic
+    spline by default). The result has effective bandwidth limited only
+    by ``fs_target``'s Nyquist (~2 Hz at the 4 Hz default), which is
+    enough to retain respiratory sinus arrhythmia (~0.15--0.4 Hz) and
+    audio-swell coupling (~0.05--0.2 Hz) — the regimes where windowed
+    HRV-feature traces fail because their effective bandwidth is
+    constrained by the window length (~0.017 Hz at 30 s windows).
+
+    Use this trace for **oscillatory / phase-locking** coupling against
+    audio (PLV / wPLI / coherence). For **slow-trend** coupling (xcorr,
+    MI on the slow envelope), the windowed HRV-feature trace from
+    :func:`compute_rolling_hrv_features` +
+    :func:`interpolate_hrv_to_regular_grid` is the appropriate signal.
+
+    Parameters
+    ----------
+    rpeak_indices : array-like of int
+        Sample indices of R-peaks into the original ECG signal at
+        ``fs_in``.
+    fs_in : float
+        Sampling rate of ``rpeak_indices`` (typically 256 Hz).
+    fs_target : float
+        Output sampling rate. Default 4 Hz.
+    n_samples : int, optional
+        Output length. Either ``n_samples`` or ``duration_s`` must be
+        provided.
+    duration_s : float, optional
+        Output duration in seconds (mutually exclusive with
+        ``n_samples``).
+    kind : str
+        Interpolation kind passed to :class:`scipy.interpolate.interp1d`
+        (``"cubic"`` by default; ``"linear"`` is a robust fallback for
+        very short signals).
+
+    Returns
+    -------
+    np.ndarray, shape (n_samples,)
+        Instantaneous heart rate in BPM at the regular ``fs_target``
+        grid. NaN-filled (with the segment mean) if fewer than 4
+        R-peaks are available.
+    """
+    if n_samples is None and duration_s is None:
+        raise ValueError("provide either n_samples or duration_s")
+    if n_samples is None:
+        n_samples = int(round(duration_s * fs_target))
+
+    if len(rpeak_indices) < 4:
+        return np.full(n_samples, np.nan)
+
+    t_peaks = np.asarray(rpeak_indices, dtype=float) / fs_in
+    rr = np.diff(t_peaks)
+    bpm = 60.0 / rr
+    t_mid = t_peaks[:-1] + rr / 2.0
+    t_target = np.arange(n_samples) / fs_target
+
+    fill = (float(bpm[0]), float(bpm[-1]))
+    interp = interp1d(
+        t_mid, bpm, kind=kind, bounds_error=False, fill_value=fill,
+    )
+    hr = interp(t_target)
+
+    if not np.all(np.isfinite(hr)):
+        m = float(np.nanmean(hr)) if np.any(np.isfinite(hr)) else float(np.mean(bpm))
+        hr = np.where(np.isfinite(hr), hr, m)
+    return hr
 
 
 # ----------------------------------------------------------------------

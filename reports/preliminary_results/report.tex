@@ -136,11 +136,21 @@ filters) or 200\,Hz (fast filters) for numerical stability and resampled to
 compute on 120\,s sliding windows (10\,s step): peak Pearson cross-correlation
 within $\pm 30$\,s lag; Welch coherence band-averaged in 0.04--0.5\,Hz; the
 phase-locking value (PLV) and the weighted phase-lag index (wPLI) at the
-narrowband around the respiratory dominant frequency (bandwidth 0.12\,Hz);
-and Kraskov-style mutual information on the analytic envelopes. Respiration
-is the source signal for one set of analyses (paired with each audio
-envelope), HRV (interpolated to 4\,Hz) for another, and EEG (band-filtered to
-match the audio band) for the third. Implementation lives in the open-source
+narrowband around the audio swell-envelope dominant frequency (bandwidth
+0.12\,Hz, centred on the Welch-PSD peak of \texttt{env\_swell\_0p2} within
+$[0.05, 0.5]$\,Hz); and Kraskov-style mutual information on the analytic
+envelopes. Respiration is the source signal for one set of analyses
+(paired with each audio envelope); HRV uses two complementary derivations
+of the cardiac signal --- a beat-to-beat \emph{instantaneous heart-rate}
+trace cubic-interpolated to 4\,Hz from R-peak midpoints (used for the
+oscillatory metrics PLV / wPLI / coherence at the swell band), and the
+classical \emph{windowed HRV features} (RMSSD, MeanNN, SDNN at 30\,s
+windows with 90\,\% overlap, then linearly resampled to 4\,Hz; used for
+the slow-trend metrics cross-correlation and MI). Mixing the two
+prevents narrowband-Hilbert phase analyses from being applied to
+30-s-windowed traces whose effective bandwidth (0--0.017\,Hz) sits well
+below the swell band. EEG is band-filtered to match the audio band as
+the third pairing. Implementation lives in the open-source
 \texttt{HNA} Python toolbox accompanying this report.
 
 \textbf{Statistical inference.} Within-subject coupling is summarised both as
@@ -264,31 +274,40 @@ unchanged. Significance code: \texttt{*** $p\!<\!.001$,
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.95\linewidth]{Fig_nature_vs_rest_hrv_meannn.png}
-\caption{\textbf{HRV (mean NN interval)--audio coupling: nature vs.\ rest,
-n=5 subjects.} Same layout and statistical apparatus as
-Figure~\ref{fig:nvr_resp}. HRV time series: per-window mean RR interval
-from R-peak detection on cleaned ECG (NeuroKit2), interpolated to 4\,Hz.
-Audio: \texttt{env\_swell\_0p2} envelope resampled to the HRV grid by
-linear interpolation. With the 0.2\,Hz swell envelope, mean RR-interval
-coupling does not differ between rest and nature on any metric (LMM
-$p \geq 0.15$ in all four panels). The multi-envelope sweep
-(Figure~\ref{fig:F_hrv}) locates HRV's strongest coupling at the
-very-slow 0.1\,Hz swell, where it \emph{decouples} during nature
-(supplementary recompute on \texttt{env\_swell\_0p1}: PLV $p=0.064$,
-wPLI $p=0.018$, both \emph{negative} $\Delta$).}
+\caption{\textbf{HRV--audio coupling: nature vs.\ rest, n=5 subjects.}
+Same layout and statistical apparatus as Figure~\ref{fig:nvr_resp}. The
+four panels mix two complementary cardiac derivations
+(see~\S\ref{sec:methods}, \emph{Cardiac signal --- two derivations}):
+\textbf{xcorr peak $|r|$} uses the 30\,s windowed mean-RR-interval
+trace (HRV\_MeanNN) interpolated to 4\,Hz; \textbf{PLV / wPLI /
+band-avg coherence} use the \emph{instantaneous heart-rate} signal at
+4\,Hz, built from R-peak indices via 1/RR cubic interpolation. Audio:
+\texttt{env\_swell\_0p2} envelope resampled to the corresponding 4\,Hz
+grid by linear interpolation. The slow-trend xcorr panel shows higher
+nature-vs-rest values ($\Delta\!=\!+0.017$, paired Wilcoxon
+$p=0.625$, LMM on per-window peaks $p=0.037$, $*$). PLV and wPLI on
+instantaneous HR do not separate the two blocks (paired Wilcoxon
+$p\geq 0.625$, LMM $p\geq 0.20$). Band-averaged coherence is
+\emph{lower} during nature than rest (LMM $p=0.0034$, $\beta=-0.018$
+per window) --- consistent with a more variable, less spectrally
+peaked HR profile under nature stimulation.}
 \label{fig:nvr_hrv}
 \end{figure}
 
 \subsection{Three-condition contrast: PLV / wPLI / coherence}
 
 Within the multisensory comparison itself (Figure~\ref{fig:fig5_resp},
-respiration; Figure~\ref{fig:fig5_hrv}, HRV mean NN), the audio-only
+respiration; Figure~\ref{fig:fig5_hrv}, instantaneous HR), the audio-only
 condition shows the strongest respiration--audio coupling on phase metrics,
 peaking $\sim$2$\times$ the value seen during \textsc{viz} or \textsc{multi}.
 The omnibus Friedman test does not reach $p\!<\!0.05$ at n=5
 ($p_{\mathrm{wPLI}}=0.165$), but pairwise Wilcoxon comparisons show
-\textsc{viz}--\textsc{aud} as the dominant trend. HRV-mean-NN coupling shows
-a significant Friedman effect on wPLI ($p=0.022$, $*$).
+\textsc{viz}--\textsc{aud} as the dominant trend. For HR--audio coupling
+(measured on the instantaneous-HR signal at 4\,Hz, see
+\S\ref{sec:methods}), band-averaged coherence shows a significant Friedman
+effect ($p=0.022$, $*$) with \textsc{aud} the highest of the three
+conditions; PLV and wPLI on instantaneous HR are not significant across
+conditions.
 
 \begin{figure}[H]
 \centering
@@ -312,15 +331,25 @@ as the dominant contrast on wPLI ($\sim$).}
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.95\linewidth]{Fig5_HRV_audio_metrics_grid.png}
-\caption{\textbf{HRV (mean NN)--audio coupling across the three multisensory
-conditions, n=5 subjects.} Same layout and statistical apparatus as
-Figure~\ref{fig:fig5_resp} (Friedman omnibus + three pairwise Wilcoxon
-post-hoc; same significance code). HRV mean NN interval was extracted in
-30\,s rolling windows (90\% overlap) via NeuroKit2 and interpolated to
-4\,Hz. wPLI shows a significant Friedman effect ($\chi^2(2)$, $p=0.022$,
-$*$), with the \textsc{viz}--\textsc{aud} pair carrying the trend
-($p=0.06$, $\sim$). PLV and band-averaged coherence are not significant
-across conditions.}
+\caption{\textbf{HR--audio oscillatory coupling across the three
+multisensory conditions, n=5 subjects.} Phase-locking value (PLV),
+weighted phase-lag index (wPLI) and band-averaged coherence
+(0.04--0.5\,Hz Welch) computed on the \emph{instantaneous heart-rate}
+signal at 4\,Hz (built from R-peak indices via 1/RR cubic
+interpolation; see \S\ref{sec:methods}, \emph{Cardiac signal --- two
+derivations}). Because the same instantaneous-HR trace is used for
+all three metrics, the figure does \emph{not} resolve a separate row
+per HRV-feature trace (HRV\_MeanNN, HRV\_RMSSD, HRV\_SDNN); those
+windowed-feature traces have effective bandwidth ${\sim}0.017$\,Hz
+and cannot support narrowband-Hilbert phase analyses at the
+${\sim}0.1$\,Hz swell band. Same statistical apparatus as
+Figure~\ref{fig:fig5_resp} (Friedman omnibus + three pairwise
+Wilcoxon post-hoc, same significance code). Band-averaged coherence
+shows a significant Friedman effect ($p=0.022$, $*$) with
+\textsc{aud} the highest of the three conditions and a $\sim$-trend
+on the \textsc{viz}/\textsc{aud} and \textsc{aud}/\textsc{multi}
+pairs. PLV and wPLI are not significant across conditions
+($p=0.819$ each).}
 \label{fig:fig5_hrv}
 \end{figure}
 
@@ -360,42 +389,72 @@ Figure~\ref{fig:nvr_resp}.}
 
 \subsection{Multi-envelope coupling fingerprint}
 
-Sweeping all four coupling metrics against all 12 audio-band envelopes
-(Figures~\ref{fig:F_resp} and \ref{fig:F_hrv}) gives a per-modality
-fingerprint of where in the audio's frequency hierarchy the coupling lives.
-For respiration, phase-based metrics (PLV, wPLI) lock most strongly to the
-slow swell envelopes and to the band that overlaps the breathing rate
-(0.15--0.40\,Hz HRV-HF band). For HRV mean NN, mutual information dominates
-on the slow swells (values $\geq 0.7$) but is essentially zero on the EEG
-bands --- biologically expected, because the heart-rate signal cannot share
-information with audio amplitude modulations at, e.g., 8--13\,Hz that have
-no counterpart in cardiac dynamics.
+Sweeping all five coupling metrics against all 12 audio-band envelopes
+gives a per-modality fingerprint of where in the audio's frequency
+hierarchy the coupling lives. For respiration
+(Figure~\ref{fig:F_resp}), phase-based metrics (PLV, wPLI) lock most
+strongly to the slow swell envelopes and to the band that overlaps the
+breathing rate (0.15--0.40\,Hz HRV-HF band). For the cardiac side, the
+two metric families correspond to the two complementary cardiac
+derivations described in \S\ref{sec:methods}: cross-correlation and
+mutual information run on the windowed HRV-feature trace
+(Figure~\ref{fig:F_hrv_slow}, here HRV\_MeanNN), while PLV, wPLI and
+band-avg coherence run on the instantaneous-HR signal at 4\,Hz
+(Figure~\ref{fig:F_hr_osc}; the latter does not depend on which HRV
+feature is under test, so a single figure suffices).
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.96\linewidth]{F_HRV_multi_envelope_heatmap_HRV_MeanNN.png}
-\caption{\textbf{HRV (mean NN)--audio coupling fingerprint, n=5 subjects.}
-Group-mean coupling per (audio-band envelope $\times$ coupling method
-$\times$ multisensory condition). Rows = the 12 band-organised audio
-envelope columns (broadband, two slow swells, two HRV-band envelopes,
-splash band, six EEG bands); columns within each metric panel = the three
-conditions (\textsc{viz}, \textsc{aud}, \textsc{multi}); panels = the five
-coupling methods (xcorr peak $|r|$, band-averaged coherence, PLV, wPLI,
-mutual information). Each metric panel has its own colour scale (printed
-under the colourbar) so within-metric variation across bands is visible.
-Mutual information dominates on the slow swells (values 0.7--1.0,
-upward-biased by autocorrelation but consistent across conditions).
-Phase metrics (PLV, wPLI) peak around the HRV-LF/HF range
-(0.04--0.40\,Hz), supporting the interpretation that HRV coupling is
-strongest in the autonomic-rhythm band.}
-\label{fig:F_hrv}
+\includegraphics[width=0.78\linewidth]{F_HRV_slow_trend_HRV_MeanNN.png}
+\caption{\textbf{HRV (mean NN)--audio slow-trend coupling fingerprint,
+n=5 subjects.} Group-mean coupling per (audio-band envelope
+$\times$ multisensory condition) for the two metrics that operate on
+the windowed HRV\_MeanNN trace at 4\,Hz: cross-correlation peak
+$|r|$ and Kraskov-style mutual information. Rows = the 12 band-
+organised audio envelope columns (broadband, two slow swells, two
+HRV-band envelopes, splash band, six EEG bands); columns = the three
+conditions (\textsc{viz}, \textsc{aud}, \textsc{multi}). Each panel
+has its own colour scale (printed under the colourbar) so within-
+metric variation across bands is visible. xcorr peaks on the slow
+swells (values up to 0.43 on \texttt{env\_swell\_0p1} during
+\textsc{aud}); mutual information dominates on the slow swells too
+(values $\geq 0.8$, upward-biased by autocorrelation but consistent
+across conditions) and is essentially zero on the EEG bands ---
+biologically expected, because the HRV trace cannot share
+information with audio amplitude modulations at, e.g., 8--13\,Hz
+that have no counterpart in cardiac dynamics.}
+\label{fig:F_hrv_slow}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.96\linewidth]{F_HR_oscillatory.png}
+\caption{\textbf{Heart-rate--audio oscillatory coupling fingerprint,
+n=5 subjects.} Group-mean coupling per (audio-band envelope $\times$
+multisensory condition) for the three metrics that require true
+beat-to-beat bandwidth: band-averaged Welch coherence
+(0.01--0.5\,Hz), PLV and wPLI. All three are computed on the
+\emph{instantaneous-HR signal} at 4\,Hz (1/RR cubic-interpolated;
+see \S\ref{sec:methods}, \emph{Cardiac signal --- two derivations}).
+Same row / column convention as Figure~\ref{fig:F_hrv_slow}.
+Coherence is broadly elevated under \textsc{aud} across most envelope
+bands (consistent with the band-avg coherence panel of
+Figure~\ref{fig:fig5_hrv}). PLV and wPLI show a more diffuse pattern
+than the earlier (pre-fix) version of this figure: previously they
+appeared to peak in the HRV-LF/HF range, but those values were
+dominated by interpolation artefacts in the 30-s-windowed HRV
+trace at frequencies the trace did not actually carry. Here they
+operate on a signal whose bandwidth genuinely covers the swell band
+(${\sim}0$--$2$\,Hz Nyquist) and the spatial pattern reflects real
+phase coupling.}
+\label{fig:F_hr_osc}
 \end{figure}
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.96\linewidth]{F_multi_envelope_heatmap.png}
 \caption{\textbf{Respiration--audio coupling fingerprint, n=5 subjects.}
-Same layout as Figure~\ref{fig:F_hrv}, with cleaned respiration
+Same layout as Figure~\ref{fig:F_hrv_slow}, with cleaned respiration
 (0.05--1\,Hz band-pass + z-score) as the source signal at 256\,Hz. PLV and
 wPLI are highest on the slow-swell envelopes (\texttt{env\_swell\_0p1} and
 \texttt{env\_swell\_0p2}) and on the HRV-HF band envelope
@@ -519,15 +578,19 @@ Three results stand out at the pilot stage. \emph{(i)} Respiration is the
 fastest physiological channel to lock to slow audio rhythms: PLV and wPLI
 between respiration and the audio swell are higher during nature listening
 than during silence (LMM-windowed $p\!<\!0.05$), and the locking peaks under
-audio-only stimulation, where attention is undivided. \emph{(ii)} Slow
-cardiac rhythms (mean RR interval) decouple from the very-slow swell
-(0.1\,Hz) when nature audio is presented, suggesting that the heart's
-intrinsic VLF/LF drift loses its incidental alignment with sub-respiratory
-audio carriers as soon as the body engages with the sound. \emph{(iii)}
-Linear methods (cross-correlation, coherence) under-detect what phase
-methods (PLV, wPLI) and information-theoretic methods (MI on Hilbert
-envelopes) recover, especially on the slow envelope columns --- a useful
-prior for analysis choices in the larger study.
+audio-only stimulation, where attention is undivided. \emph{(ii)} On the
+cardiac side, slow-trend coupling (windowed MeanNN--audio
+cross-correlation) is mildly elevated during nature relative to rest
+(LMM $p=0.037$), while PLV / wPLI on the instantaneous-HR signal do not
+separate the two blocks; band-averaged coherence is in fact \emph{lower}
+under nature (LMM $p=0.0034$), consistent with a more variable, less
+spectrally peaked HR profile under naturalistic stimulation. \emph{(iii)}
+Linear methods (cross-correlation) and phase methods (PLV, wPLI) report
+complementary information --- the respiration--audio answer is sharper on
+phase metrics, the HR--audio answer on the slow-trend trace --- and
+information-theoretic methods (MI on Hilbert envelopes) recover yet a
+third pattern (slow-swell dominant). A useful prior for analysis choices
+in the larger study.
 
 The phase-clustering analysis is the cleanest small-sample test we have:
 under audio-only listening, 4/5 subjects show within-subject phase
@@ -545,11 +608,15 @@ multisensory binding overhead, not with simple stimulus tracking.
 
 The largest methodological lessons for the planned full study are: (1)
 phase metrics on the slow swell envelope should be the primary
-respiration--audio readout; (2) HRV coupling should be reported separately
-on the LF and HF envelopes (the swell-versus-nature direction differs); (3)
-EEG analyses should plan for both the pseudoreplication-aware LMM (subject
-$\times$ channel crossed random effects) and a small-N-honest paired test on
-subject means.
+respiration--audio readout; (2) cardiac coupling requires \emph{two}
+parallel signals --- the windowed HRV-feature trace for slow-trend
+metrics (xcorr, MI) and the instantaneous-HR trace at 4\,Hz for
+oscillatory metrics (PLV, wPLI, coherence) --- because applying
+narrowband-Hilbert phase analyses to a 30-s-windowed feature trace is
+methodologically incorrect (its effective bandwidth ${\sim}0.017$\,Hz
+sits below the swell band); (3) EEG analyses should plan for both the
+pseudoreplication-aware LMM (subject $\times$ channel crossed random
+effects) and a small-N-honest paired test on subject means.
 
 \paragraph{Limitations.} n=5, two recording sites (Chile, Mallorca), single session
 per subject, no behavioural / phenomenological measures yet, no fractal
