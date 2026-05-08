@@ -1,32 +1,18 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Surrogate test for HR-audio oscillatory coupling (coherence, PLV, wPLI).
+Surrogate test for respiration-audio oscillatory coupling.
 
-Per (subject, condition):
-  - Build instantaneous-HR trace at 4 Hz (1/RR cubic-interp from R-peaks).
-  - Match audio swell envelope (env_swell_0p2) to the same 4 Hz grid.
-  - Compute observed coherence / PLV / wPLI.
-  - Generate n=200 phase-shuffle surrogates of the audio envelope (preserves
-    spectrum), recompute each metric per surrogate -> null distribution.
-  - Report z = (observed - null mean) / null std and one-sided p.
+Phase-shuffle null for coherence / PLV / wPLI between cleaned
+respiration (256 Hz) and the audio swell envelope ``env_swell_0p2``
+(256 Hz), per (subject, condition). Counterpart to
+``surrogate_hrv_audio.py``.
 
 Output:
-    reports/preliminary_results/diagnostics/Fig_surrogate_hrv_audio_oscillatory.{png,pdf}
-    results/surrogate_hrv_audio/surrogate_hrv_audio.csv
+    reports/preliminary_results/diagnostics/Fig_surrogate_resp_audio_oscillatory.{png,pdf}
+    results/surrogate_resp_audio/surrogate_resp_audio.csv
 
-The figure is two stacked rows:
-  Row 1: observed values per (condition, subject), with the per-subject null
-         95% interval shown as a thin error bar
-  Row 2: z-scores per (condition, subject); horizontal line at z=1.96 = 5%
-         one-sided
-
-This script is diagnostic. It is NOT in the report unless you decide to
-add it after inspection.
-
-Usage:
-    PYTHONPATH=src python scripts/figures/preliminary/surrogate_hrv_audio.py \\
-        --subjects 2 3 4 5 6 --data-dir <DATA>
+Diagnostic; not in the report unless added after inspection.
 """
 from __future__ import annotations
 import argparse
@@ -41,17 +27,16 @@ ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "src"))
 from HNA.viz import use_paper_style, save_figure
 from HNA.utils import get_condition_segments
-from HNA.modalities.ecg import instantaneous_hr_signal
+from HNA.modalities.respiration import clean_respiration
 from HNA.surrogates import surrogate_test
 from HNA.coupling import (
     plv_phase_sync, wpli_phase_sync, band_coherence_windowed,
 )
 
 
-FS_AUDIO = 256.0
-FS_HR = 4.0
-COH_FMIN, COH_FMAX = 0.01, 0.5
-PLV_BW = 0.10
+FS = 256.0  # respiration and env_swell_0p2 both live on the merged CSV grid
+COH_FMIN, COH_FMAX = 0.05, 0.5
+PLV_BW = 0.12
 
 CONDITIONS = ["RS1", "VIZ", "AUD", "MULTI", "RS2"]
 COND_COLORS = {
@@ -65,66 +50,44 @@ COND_COLORS = {
 N_SURROGATES = 200
 
 
-# --------------------------------------------------------------------- #
-# Per-subject signal preparation
-# --------------------------------------------------------------------- #
-def _build_signals(df: pd.DataFrame, cond: str, ecg_dir: Path,
+def _build_signals(df: pd.DataFrame, cond: str,
                     env_col: str = "env_swell_0p2"):
-    """Return (hr_inst, env_at_4hz) for the given condition or None."""
+    """Return (resp, env) for one condition or (None, None)."""
     indices = get_condition_segments(df, df["condition_names"].unique())
     s = indices.get(f"{cond}_start"); e = indices.get(f"{cond}_stop")
     if s is None or e is None:
         return None, None
     s, e = int(s), int(e)
-    r = df.iloc[s:e].copy()
+    r = df.iloc[s:e]
     if env_col not in r.columns:
         return None, None
-    audio_time = r["time_s"].to_numpy(float) - r["time_s"].iloc[0]
+    if "respiration_clean" in r.columns:
+        resp = r["respiration_clean"].to_numpy(float)
+    else:
+        if "respiration" not in r.columns:
+            return None, None
+        resp = clean_respiration(r["respiration"].to_numpy(float), fs=FS)
     env = r[env_col].to_numpy(float)
-    if not np.any(np.isfinite(env)) or len(env) < int(FS_AUDIO * 30):
+    m = np.isfinite(resp) & np.isfinite(env)
+    if (m.sum() < int(FS * 60)
+            or float(np.std(resp[m])) < 1e-9
+            or float(np.std(env[m])) < 1e-9):
         return None, None
-    rpeaks_file = ecg_dir / f"rpeaks_{cond}.npy"
-    if not rpeaks_file.exists():
-        return None, None
-    rpeaks_seg = np.load(rpeaks_file)
-    if len(rpeaks_seg) < 4:
-        return None, None
-    seg_duration = (e - s) / FS_AUDIO
-    n_target = int(round(seg_duration * FS_HR))
-    hr_inst = instantaneous_hr_signal(
-        rpeaks_seg, fs_in=FS_AUDIO, fs_target=FS_HR, n_samples=n_target,
-    )
-    t_target = np.arange(n_target) / FS_HR
-    env_at_4hz = np.interp(
-        t_target,
-        audio_time[np.isfinite(env)],
-        env[np.isfinite(env)],
-    )
-    m = np.isfinite(hr_inst) & np.isfinite(env_at_4hz)
-    if (m.sum() < int(FS_HR * 60)
-            or float(np.std(hr_inst[m])) < 1e-9
-            or float(np.std(env_at_4hz[m])) < 1e-9):
-        return None, None
-    return hr_inst[m], env_at_4hz[m]
+    return resp[m], env[m]
 
 
-# --------------------------------------------------------------------- #
-# Coupling-metric closures (used by surrogate_test)
-# --------------------------------------------------------------------- #
 def _coh_metric(x, y):
-    res = band_coherence_windowed(x, y, fs=FS_HR, fmin=COH_FMIN, fmax=COH_FMAX,
-                                   win_sec=120.0, step_sec=30.0)
+    res = band_coherence_windowed(x, y, fs=FS, fmin=COH_FMIN, fmax=COH_FMAX,
+                                   win_sec=120.0, step_sec=10.0)
     return float(res["band_avg_coh"])
 
 
 def _plv_metric(x, y):
-    return float(plv_phase_sync(x, y, fs=FS_HR, bw_hz=PLV_BW,
-                                  fmin_search=0.02, fmax_search=0.5).plv)
+    return float(plv_phase_sync(x, y, fs=FS, bw_hz=PLV_BW).plv)
 
 
 def _wpli_metric(x, y):
-    return float(wpli_phase_sync(x, y, fs=FS_HR, bw_hz=PLV_BW,
-                                   fmin_search=0.02, fmax_search=0.5).wpli)
+    return float(wpli_phase_sync(x, y, fs=FS, bw_hz=PLV_BW).wpli)
 
 
 METRICS = [
@@ -134,9 +97,6 @@ METRICS = [
 ]
 
 
-# --------------------------------------------------------------------- #
-# Per-subject surrogate run
-# --------------------------------------------------------------------- #
 def _run_subject(subj: int, data_dir: Path, n_surrogates: int):
     rows = []
     sub = f"sub-{subj:02d}"
@@ -146,19 +106,16 @@ def _run_subject(subj: int, data_dir: Path, n_surrogates: int):
         print(f"  SKIP {sub}: no merged CSV")
         return rows
     df = pd.read_csv(merged, low_memory=False)
-    if "time_s" not in df.columns:
-        df["time_s"] = np.arange(len(df)) / FS_AUDIO
-    ecg_dir = sdir / "ecg_processed"
 
     for cond in CONDITIONS:
-        hr, env = _build_signals(df, cond, ecg_dir)
-        if hr is None or env is None:
+        resp, env = _build_signals(df, cond)
+        if resp is None or env is None:
             print(f"    {cond}: skipped (missing signals)")
             continue
         for key, _, fn in METRICS:
             try:
                 obs, null, p, z = surrogate_test(
-                    fn, hr, env, n=n_surrogates,
+                    fn, resp, env, n=n_surrogates,
                     method="phase_shuffle",
                     surrogate_target="y",
                     higher_is_better=True,
@@ -181,9 +138,6 @@ def _run_subject(subj: int, data_dir: Path, n_surrogates: int):
     return rows
 
 
-# --------------------------------------------------------------------- #
-# Plotting
-# --------------------------------------------------------------------- #
 def _plot(df: pd.DataFrame, output_path: Path):
     use_paper_style()
     metrics = [m[0] for m in METRICS]
@@ -199,7 +153,6 @@ def _plot(df: pd.DataFrame, output_path: Path):
         if sub.empty:
             continue
 
-        # --- Top row: observed value + per-subject null 95% interval ---
         ax = axes[0, j]
         for _, row in sub.iterrows():
             x = cond_x[row["condition"]] + (
@@ -219,7 +172,6 @@ def _plot(df: pd.DataFrame, output_path: Path):
             ax.set_ylabel("observed\n(grey bar = null 95% CI)",
                            fontsize=10.5)
 
-        # --- Bottom row: z-score per (subject, condition) ---
         ax = axes[1, j]
         rng = np.random.default_rng(0)
         for _, row in sub.iterrows():
@@ -239,7 +191,7 @@ def _plot(df: pd.DataFrame, output_path: Path):
                            fontsize=10.5)
 
     fig.suptitle(
-        "HR–audio oscillatory coupling vs. phase-shuffle null "
+        "Respiration–audio oscillatory coupling vs. phase-shuffle null "
         f"(n_surr={N_SURROGATES})",
         fontsize=12.5, fontweight="bold", y=0.995,
     )
@@ -249,9 +201,6 @@ def _plot(df: pd.DataFrame, output_path: Path):
     print(f"  Saved: {Path(output_path).name}.png (+ pdf)")
 
 
-# --------------------------------------------------------------------- #
-# Main
-# --------------------------------------------------------------------- #
 def parse_args():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--subjects", type=int, nargs="+",
@@ -260,9 +209,9 @@ def parse_args():
     p.add_argument("--n-surrogates", type=int, default=N_SURROGATES)
     p.add_argument("--out", type=Path,
                    default=ROOT / "reports" / "preliminary_results" / "figures"
-                                / "Fig_surrogate_hrv_audio_oscillatory")
+                                / "Fig_surrogate_resp_audio_oscillatory")
     p.add_argument("--results-dir", type=Path,
-                   default=ROOT / "results" / "surrogate_hrv_audio")
+                   default=ROOT / "results" / "surrogate_resp_audio")
     return p.parse_args()
 
 
@@ -270,7 +219,6 @@ def main():
     args = parse_args()
     args.results_dir.mkdir(parents=True, exist_ok=True)
     args.out.parent.mkdir(parents=True, exist_ok=True)
-
     rows = []
     for s in args.subjects:
         print(f"\n[sub-{s:02d}]")
@@ -278,9 +226,8 @@ def main():
     if not rows:
         print("No rows -- nothing to plot.")
         return
-
     df = pd.DataFrame(rows)
-    csv_path = args.results_dir / "surrogate_hrv_audio.csv"
+    csv_path = args.results_dir / "surrogate_resp_audio.csv"
     df.to_csv(csv_path, index=False)
     print(f"\n  CSV: {csv_path}")
     _plot(df, args.out)

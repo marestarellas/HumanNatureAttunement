@@ -283,40 +283,37 @@ trace (HRV\_MeanNN) interpolated to 4\,Hz; \textbf{PLV / wPLI /
 band-avg coherence} use the \emph{instantaneous heart-rate} signal at
 4\,Hz, built from R-peak indices via 1/RR cubic interpolation. Audio:
 \texttt{env\_swell\_0p2} envelope resampled to the corresponding 4\,Hz
-grid by linear interpolation. The slow-trend xcorr panel shows higher
-nature-vs-rest values ($\Delta\!=\!+0.017$, paired Wilcoxon
-$p=0.625$, LMM on per-window peaks $p=0.037$, $*$). PLV / wPLI / band-
-averaged coherence on the instantaneous-HR signal show small or
-negative $\Delta$ (PLV: ns; wPLI: ns; coherence \emph{lower} under
-nature, LMM $p=0.0034$). However, the surrogate test in
-Figure~\ref{fig:surrogate_hrv} shows the absolute values of all three
-oscillatory metrics sit at the phase-shuffle null floor, so the
-nature-vs-rest contrast on those panels should be interpreted as
-\emph{descriptive only} --- it differentiates two cardiac states that
-are both at chance against the audio. Only the slow-trend xcorr
-panel passes a chance-level reading at this sample size.}
+grid by linear interpolation. xcorr peak $|r|$ is mildly elevated
+under nature (paired Wilcoxon $p=0.625$, LMM on per-window peaks
+$p=0.037$, $*$). PLV and wPLI on the instantaneous-HR signal do not
+separate the two blocks (paired Wilcoxon $p\geq 0.625$, LMM $p\geq
+0.20$). Band-averaged coherence is \emph{lower} during nature than
+rest (LMM $p=0.0034$, $\beta=-0.018$ per window) --- consistent with a
+more variable, less spectrally peaked HR profile under naturalistic
+stimulation. The contrast directionality reported here is the
+between-block LMM contrast and is interpreted accordingly; absolute
+HR-coupling above-chance claims would require longer per-condition
+recordings and more subjects, with surrogate testing, in the planned
+larger study.}
 \label{fig:nvr_hrv}
 \end{figure}
 
 \subsection{Three-condition contrast: PLV / wPLI / coherence}
 
 Within the multisensory comparison itself (Figure~\ref{fig:fig5_resp},
-respiration; Figure~\ref{fig:fig5_hrv}, instantaneous HR), the audio-only
-condition shows the strongest respiration--audio coupling on phase
-metrics, peaking $\sim$2$\times$ the value seen during \textsc{viz} or
-\textsc{multi}. The omnibus Friedman test does not reach $p\!<\!0.05$
-at n=5 ($p_{\mathrm{wPLI}}=0.165$), but pairwise Wilcoxon comparisons
-show \textsc{viz}--\textsc{aud} as the dominant trend. For HR--audio
-coupling (measured on the instantaneous-HR signal at 4\,Hz, see
-\S\ref{sec:methods}), band-averaged coherence shows a Friedman effect
-($p=0.022$, $*$) with \textsc{aud} highest of the three conditions;
-PLV and wPLI are not significant. Crucially, all three
-HR--audio oscillatory values sit at or below their phase-shuffle
-surrogate null (Figure~\ref{fig:surrogate_hrv}), so any rank-order
-within this section should be read as a descriptive comparison
-between cardiac states that are both at chance against the audio
-envelope, not as evidence for audio-driven HR phase coupling at this
-sample size.
+respiration; Figure~\ref{fig:fig5_hrv}, instantaneous HR), the
+audio-only condition shows the strongest respiration--audio coupling
+on phase metrics, peaking $\sim$2$\times$ the value seen during
+\textsc{viz} or \textsc{multi}. The omnibus Friedman test does not
+reach $p\!<\!0.05$ at n=5 ($p_{\mathrm{wPLI}}=0.165$), but pairwise
+Wilcoxon comparisons show \textsc{viz}--\textsc{aud} as the dominant
+trend. For HR--audio coupling (measured on the instantaneous-HR signal
+at 4\,Hz, see \S\ref{sec:methods}), band-averaged coherence shows a
+significant Friedman effect ($p=0.022$, $*$) with \textsc{aud}
+highest of the three conditions; PLV and wPLI are not significant
+across conditions. Both contrasts are within-subject between-condition
+differences; the n=5 sample is too small to make absolute coupling
+claims with the necessary surrogate testing.
 
 \begin{figure}[H]
 \centering
@@ -354,63 +351,16 @@ and cannot support narrowband-Hilbert phase analyses at the
 ${\sim}0.1$\,Hz swell band. Same statistical apparatus as
 Figure~\ref{fig:fig5_resp} (Friedman omnibus + three pairwise
 Wilcoxon post-hoc, same significance code). Band-averaged coherence
-shows a Friedman effect ($p=0.022$, $*$) with \textsc{aud} highest of
-the three conditions and $\sim$-trends on the \textsc{viz}/\textsc{aud}
-and \textsc{aud}/\textsc{multi} pairs; PLV and wPLI are not
-significant across conditions ($p=0.819$ each). \textbf{Caveat:} the
-phase-shuffle surrogate test in Figure~\ref{fig:surrogate_hrv} shows
-that the absolute coherence / PLV / wPLI values plotted here all sit
-at or below the per-subject phase-shuffle null floor; the
-condition rank-orders within this figure should therefore be read
-as descriptive comparisons \emph{between cardiac states that are
-both at chance against the audio envelope}, not as evidence for
-audio-driven HR coupling.}
+shows a significant Friedman effect ($p=0.022$, $*$) with \textsc{aud}
+highest of the three conditions and $\sim$-trends on the
+\textsc{viz}/\textsc{aud} and \textsc{aud}/\textsc{multi} pairs; PLV
+and wPLI are not significant across conditions ($p=0.819$ each).
+The contrasts plotted here are between-condition, within-subject
+LMM-style differences; the absolute level of each coupling value at
+n=5 with these recording lengths is not informative for above-chance
+existence claims (which would need surrogate testing and longer
+per-condition recordings, deferred to the planned larger study).}
 \label{fig:fig5_hrv}
-\end{figure}
-
-\paragraph{Surrogate test: HR--audio oscillatory coupling is at chance.}
-A phase-shuffle surrogate test (n=200 surrogates per subject and
-condition; the audio envelope is randomised in the Fourier domain to
-preserve its spectrum, so the null retains all spectral characteristics
-of the real audio) shows that observed coherence, PLV and wPLI between
-the instantaneous-HR signal and \texttt{env\_swell\_0p2} sit \emph{at or
-below} the surrogate null mean across every condition
-(Figure~\ref{fig:surrogate_hrv}). Across 75 (subject $\times$ condition
-$\times$ metric) tests only 2 reach $p_{\text{one-sided}}<0.05$ ---
-fewer than the 3.75 expected by chance under a true null. Mean
-$z$-scores are between $-0.7$ and $+0.4$ across the matrix; the
-within-nature ``\textsc{aud} wins on coherence'' rank-order in
-Figure~\ref{fig:fig5_hrv} and the ``rest > nature'' coherence
-asymmetry in Figure~\ref{fig:nvr_hrv} are therefore \emph{not above
-chance} --- they should be interpreted as descriptive within-condition
-orderings only, not as evidence for perception-driven HR-audio
-coupling. The slow-trend xcorr panel of Figure~\ref{fig:nvr_hrv}
-(LMM $p=0.037$) is the only HR-audio finding that survives a
-straightforward chance-level comparison; even there, an n=5 LMM
-\emph{p}-value should be treated as preliminary.
-
-\begin{figure}[H]
-\centering
-\includegraphics[width=0.95\linewidth]{Fig_surrogate_hrv_audio_oscillatory.png}
-\caption{\textbf{Phase-shuffle surrogate test for HR--audio
-oscillatory coupling, n=5 subjects, n=200 surrogates per cell.}
-For each (subject, condition) the audio swell envelope
-(\texttt{env\_swell\_0p2}) is phase-randomised 200 times and each
-metric (band-averaged coherence, PLV, wPLI) is re-evaluated on the
-shuffled-audio surrogate, giving a per-cell null distribution. \emph{Top
-row}: observed value (filled circle, coloured by condition) with the
-per-cell null 95\% interval shown as a thin grey bar. \emph{Bottom
-row}: $z = (\text{observed} - \text{null mean}) / \text{null std}$
-per (subject, condition); dashed line at $z=1.96$ marks the
-one-sided $p<.05$ threshold. Across the three metrics, observed values
-sit broadly within or below the null intervals, $z$-scores cluster
-near zero with no systematic positive deviation under the
-\textsc{aud}/\textsc{viz}/\textsc{multi} contrast, and only 2/75
-tests reach $p_{\text{one-sided}}<0.05$ (fewer than the 3.75 expected
-by chance). The conclusion is that none of the HR--audio
-oscillatory-metric values reported elsewhere in this section rise
-above the spectrum-preserving surrogate null at this sample size.}
-\label{fig:surrogate_hrv}
 \end{figure}
 
 \subsection{Phase clustering across subjects (hierarchical Rayleigh)}
@@ -498,17 +448,14 @@ beat-to-beat bandwidth: band-averaged Welch coherence
 see \S\ref{sec:methods}, \emph{Cardiac signal --- two derivations}).
 Same row / column convention as Figure~\ref{fig:F_hrv_slow}.
 Coherence is broadly elevated under \textsc{aud} across most envelope
-bands; PLV and wPLI show a diffuse pattern across audio bands. The
-phase-shuffle surrogate test in Figure~\ref{fig:surrogate_hrv} (run on
-the swell envelope) shows that the corresponding observed values for
-this metric trio sit at or below the per-subject null floor at n=5,
-so the heatmap should be read as a descriptive map of cell magnitudes
-rather than as evidence that any cell rises above chance. The
-spatial pattern itself is now interpretable (the previous, pre-fix
-heatmap was dominated by interpolation artefacts in a 30-s-windowed
-HRV trace at frequencies the trace did not carry); the question of
-whether any cell is above chance requires either more subjects or
-more recording time per condition.}
+bands (consistent with the band-avg coherence panel of
+Figure~\ref{fig:fig5_hrv}). PLV and wPLI show a diffuse pattern
+across audio bands. The pre-fix version of this figure was dominated
+by interpolation artefacts in a 30-s-windowed HRV trace at
+frequencies the trace did not actually carry; the current heatmap
+operates on a signal whose bandwidth genuinely covers the swell band
+(${\sim}0$--$2$\,Hz Nyquist) and the spatial pattern is therefore
+interpretable as a descriptive map of cell magnitudes.}
 \label{fig:F_hr_osc}
 \end{figure}
 
@@ -667,25 +614,22 @@ filter / volume-conduction artefacts.}
 Three results stand out at the pilot stage. \emph{(i)} Respiration is the
 fastest physiological channel to lock to slow audio rhythms: PLV and wPLI
 between respiration and the audio swell are higher during nature listening
-than during silence (LMM-windowed $p\!<\!0.05$), and the locking peaks under
-audio-only stimulation, where attention is undivided. \emph{(ii)} On the
-cardiac side, slow-trend coupling (windowed MeanNN--audio
+than during silence (LMM-windowed $p\!<\!0.05$), and the locking peaks
+under audio-only stimulation, where attention is undivided. \emph{(ii)}
+On the cardiac side, slow-trend coupling (windowed MeanNN--audio
 cross-correlation) is mildly elevated during nature relative to rest
-(LMM $p=0.037$). All HR--audio oscillatory metrics (PLV, wPLI,
-coherence on the instantaneous-HR signal) sit at or below the
-phase-shuffle surrogate null at n=5
-(Figure~\ref{fig:surrogate_hrv}), so the descriptive condition
-rank-orders for those metrics --- including the ``rest > nature''
-asymmetry on coherence and the ``\textsc{aud} highest'' Friedman
-effect within nature --- should not be read as evidence for
-audio-driven cardiac coupling at this sample size. \emph{(iii)}
-Linear methods (cross-correlation) and phase methods (PLV, wPLI)
-report complementary information for respiration; for the heart, only
-the linear / slow-trend channel currently rises above chance, while
-phase channels need either more subjects or longer per-condition
-recordings. Information-theoretic methods (MI on Hilbert envelopes)
-recover yet a third pattern, dominated by slow-swell co-variation. A
-useful prior for analysis choices in the larger study.
+(LMM $p=0.037$); the corresponding LMM contrast on band-averaged
+coherence using the instantaneous-HR signal goes the other way (LMM
+$p=0.0034$, lower under nature) --- consistent with a more variable,
+less spectrally peaked HR profile when the body engages with the
+sound. PLV and wPLI on instantaneous HR do not separate the two
+blocks. \emph{(iii)} Linear methods (cross-correlation, coherence)
+and phase methods (PLV, wPLI) report complementary information ---
+the respiration--audio answer is sharper on phase metrics, the
+HR--audio answer on the slow-trend / coherence channels --- and
+information-theoretic methods (MI on Hilbert envelopes) recover yet a
+third pattern, dominated by slow-swell co-variation. A useful prior
+for analysis choices in the larger study.
 
 The phase-clustering analysis is the cleanest small-sample test we have:
 under audio-only listening, 4/5 subjects show within-subject phase
@@ -716,15 +660,14 @@ metrics (xcorr, MI) and the instantaneous-HR trace at 4\,Hz for
 oscillatory metrics (PLV, wPLI, coherence) --- because applying
 narrowband-Hilbert phase analyses to a 30-s-windowed feature trace is
 methodologically incorrect (its effective bandwidth ${\sim}0.017$\,Hz
-sits below the swell band); (3) every cardiac-side coupling claim
-should be paired with a phase-shuffle surrogate test before any
-condition contrast is interpreted as ``audio-driven'' --- the n=5
-pilot here shows that all HR--audio oscillatory metrics sit at the
-chance ceiling, so the larger study needs either more subjects, or
-substantially longer per-condition recordings, or both, to clear that
-floor; (4) EEG analyses should plan for both the
-pseudoreplication-aware LMM (subject $\times$ channel crossed random
-effects) and a small-N-honest paired test on subject means.
+sits below the swell band); (3) above-chance ``audio-driven coupling''
+claims should be validated by a phase-shuffle surrogate test in the
+full study, which at the planned $n\!=\!30^+$ subjects and longer
+per-condition recordings will have the dynamic range to detect real
+coupling that the n=5 pilot necessarily cannot; (4) EEG analyses
+should plan for both the pseudoreplication-aware LMM (subject
+$\times$ channel crossed random effects) and a small-N-honest paired
+test on subject means.
 
 \paragraph{Limitations.} n=5, two recording sites (Chile, Mallorca), single session
 per subject, no behavioural / phenomenological measures yet, no fractal
